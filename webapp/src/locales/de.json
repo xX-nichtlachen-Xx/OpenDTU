@@ -727,6 +727,8 @@
         "TotalUpperPowerLimitHint": "Die Wechselrichter werden so eingestellt, dass sie in Summe höchstens diese Leistung erbringen.",
         "UpperPowerLimit": "Maximales Leistungslimit",
         "UpperPowerLimitHint": "Der Wechselrichter wird stets so eingestellt, dass höchstens diese Ausgangsleistung erreicht wird. Dieser Wert muss so gewählt werden, dass die Strombelastbarkeit der AC-Anschlussleitungen eingehalten wird.",
+        "InverterMaxPower": "Benutzerdefinierte maximale Leistung",
+        "InverterMaxPowerHint": "Optional: Legen Sie eine benutzerdefinierte maximale Leistung für diesen Wechselrichter fest. Wenn nichts eingegeben oder Null, wird die nominale Maximalleistung des Geräts verwendet.",
         "AllowStandby": "Standby erlauben",
         "AllowStandbyHint": "Erlaubt dem Wechselrichter in Standby zu gehen, wenn das berechnete Leistungslimit unter dem minimalen Leistungslimit liegt.",
         "SocThresholds": "Batterie State of Charge (SoC) Schwellwerte",

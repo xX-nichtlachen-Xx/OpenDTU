@@ -70,6 +70,7 @@ void WebApiPowerLimiterClass::onMetaData(AsyncWebServerRequest* request)
         auto channels = inv->Statistics()->getChannelsByType(TYPE_DC);
         obj["channels"] = channels.size();
         obj["pdl_supported"] = inv->supportsPowerDistributionLogic();
+        obj["custom_max_power"] = config.PowerLimiter.Inverters[i].MaxPower;
     }
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);

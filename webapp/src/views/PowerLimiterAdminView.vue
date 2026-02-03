@@ -206,6 +206,14 @@
                             type="number"
                             wide
                         />
+                        <InputElement
+                            :label="$t('powerlimiteradmin.InverterMaxPower')"
+                            :tooltip="$t('powerlimiteradmin.InverterMaxPowerHint')"
+                            v-model="inv.max_power"
+                            postfix="W"
+                            type="number"
+                            wide
+                        />
                     </CardElement>
                 </template>
 
@@ -722,7 +730,8 @@ export default defineComponent({
                 newInv.is_governed = false;
                 newInv.is_behind_power_meter = true;
                 newInv.lower_power_limit = this.getLowerLimitMinimum(newInv);
-                newInv.upper_power_limit = Math.max(metaInv.max_power, 300);
+                newInv.max_power = metaInv.custom_max_power || metaInv.max_power;
+                newInv.upper_power_limit = Math.max(newInv.max_power || metaInv.max_power, 300);
                 newInv.power_source = 0; // battery
                 newInv.use_overscaling_to_compensate_shading = false;
                 newInv.allow_standby = true;

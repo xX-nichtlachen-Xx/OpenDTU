@@ -8,6 +8,7 @@ export interface PowerLimiterInverterInfo {
     command_enable: boolean;
     command_enable_night: boolean;
     max_power: number;
+    custom_max_power?: number;
     type: string;
     channels: number;
     pdl_supported: boolean;
@@ -31,6 +32,7 @@ export interface PowerLimiterInverterConfig {
     allow_standby: boolean;
     lower_power_limit: number;
     upper_power_limit: number;
+    max_power?: number;
 }
 
 export interface PowerLimiterConfig {
