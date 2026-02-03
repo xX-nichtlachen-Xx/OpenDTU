@@ -226,6 +226,7 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
         t["allow_standby"] = s.AllowStandby;
         t["lower_power_limit"] = s.LowerPowerLimit;
         t["upper_power_limit"] = s.UpperPowerLimit;
+        t["max_power"] = s.MaxPower;
     }
 }
 
@@ -654,6 +655,7 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
         inv.AllowStandby = s["allow_standby"] | POWERLIMITER_ALLOW_STANDBY;
         inv.LowerPowerLimit = s["lower_power_limit"] | POWERLIMITER_LOWER_POWER_LIMIT;
         inv.UpperPowerLimit = s["upper_power_limit"] | POWERLIMITER_UPPER_POWER_LIMIT;
+        inv.MaxPower = s["max_power"] | 0;
     }
 }
 

@@ -151,6 +151,7 @@ struct POWERLIMITER_INVERTER_CONFIG_T {
     bool AllowStandby;
     uint16_t LowerPowerLimit;
     uint16_t UpperPowerLimit;
+    uint16_t MaxPower;  // Custom max power override (0 = use inverter default)
 
     enum InverterPowerSource { Battery = 0, Solar = 1, SmartBuffer = 2 };
     InverterPowerSource PowerSource;
