@@ -74,6 +74,13 @@ float Controller::getPowerTotal() const
     return _upProvider->getPowerTotal();
 }
 
+std::optional<float> Controller::getPowerPhase(uint8_t phase) const
+{
+    std::lock_guard<std::mutex> l(_mutex);
+    if (!_upProvider) { return std::nullopt; }
+    return _upProvider->getPowerPhase(phase);
+}
+
 uint32_t Controller::getLastUpdate() const
 {
     std::lock_guard<std::mutex> l(_mutex);

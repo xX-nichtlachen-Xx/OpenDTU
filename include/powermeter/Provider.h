@@ -29,6 +29,9 @@ public:
     virtual bool isDataValid() const;
 
     float getPowerTotal() const;
+    // Returns the per-phase power reading if available, else nullopt.
+    // phase: 1=L1, 2=L2, 3=L3
+    std::optional<float> getPowerPhase(uint8_t phase) const;
     uint32_t getLastUpdate() const { return _dataCurrent.getLastUpdate(); }
     void mqttLoop() const;
 

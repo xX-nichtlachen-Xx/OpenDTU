@@ -80,6 +80,9 @@ public:
     bool isSolarPowered() const { return _config.PowerSource == PowerLimiterInverterConfig::InverterPowerSource::Solar; }
     bool isSmartBufferPowered() const { return _config.PowerSource == PowerLimiterInverterConfig::InverterPowerSource::SmartBuffer; }
 
+    PowerLimiterInverterConfig::ReferencePhase getPhaseAssignment() const { return _config.PhaseAssignment; }
+    PowerLimiterInverterConfig::ReferencePhase getConnectedPhase() const { return _config.ConnectedPhase; }
+
     void debug() const;
 
     enum class Eligibility : unsigned {
@@ -95,6 +98,8 @@ public:
     // only returns true if the inverter can participate
     // in achieving the requested change in power output
     bool isEligible() const;
+
+    bool hasTargetLimitPending() const { return _oTargetPowerLimitWatts.has_value() || _oTargetPowerState.has_value(); }
 
 protected:
     explicit PowerLimiterInverter(PowerLimiterInverterConfig const& config);

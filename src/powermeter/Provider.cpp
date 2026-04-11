@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <powermeter/Provider.h>
 #include <MqttSettings.h>
-
+#include <optional>
 namespace PowerMeters {
 
 bool Provider::isDataValid() const
@@ -17,6 +17,16 @@ float Provider::getPowerTotal() const
     return _dataCurrent.get<DataPointLabel::PowerL1>().value_or(0.0f)
         + _dataCurrent.get<DataPointLabel::PowerL2>().value_or(0.0f)
         + _dataCurrent.get<DataPointLabel::PowerL3>().value_or(0.0f);
+}
+
+std::optional<float> Provider::getPowerPhase(uint8_t phase) const
+{
+    switch (phase) {
+        case 1: return _dataCurrent.get<DataPointLabel::PowerL1>();
+        case 2: return _dataCurrent.get<DataPointLabel::PowerL2>();
+        case 3: return _dataCurrent.get<DataPointLabel::PowerL3>();
+        default: return std::nullopt;
+    }
 }
 
 void Provider::mqttLoop() const

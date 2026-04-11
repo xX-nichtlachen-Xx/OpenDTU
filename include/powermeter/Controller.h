@@ -15,6 +15,9 @@ public:
     void updateSettings();
 
     float getPowerTotal() const;
+    // Returns per-phase power if the provider has that data, else nullopt.
+    // phase: 1=L1, 2=L2, 3=L3
+    std::optional<float> getPowerPhase(uint8_t phase) const;
     uint32_t getLastUpdate() const;
     bool isDataValid() const;
 
