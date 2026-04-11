@@ -99,6 +99,16 @@
                         min="1"
                         wide
                     />
+
+                    <InputElement
+                        :label="$t('powerlimiteradmin.MaxNegativePowerMeter')"
+                        :tooltip="$t('powerlimiteradmin.MaxNegativePowerMeterHint')"
+                        v-model="powerLimiterConfigList.max_negative_power_meter"
+                        postfix="W"
+                        type="number"
+                        max="0"
+                        wide
+                    />
                 </template>
 
                 <template
@@ -153,6 +163,40 @@
                                         :value="provider.key"
                                     >
                                         {{ $t(`powerlimiteradmin.PowerSource` + provider.value) }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label class="col-sm-4 col-form-label">
+                                {{ $t('powerlimiteradmin.PhaseAssignment') }}
+                            </label>
+                            <div class="col-sm-8">
+                                <select class="form-select" v-model="inv.phase_assignment">
+                                    <option
+                                        v-for="phase in phaseAssignmentList"
+                                        :key="phase.key"
+                                        :value="phase.key"
+                                    >
+                                        {{ $t(`powerlimiteradmin.PhaseAssignment` + phase.value) }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3" v-if="inv.phase_assignment == 0">
+                            <label class="col-sm-4 col-form-label">
+                                {{ $t('powerlimiteradmin.ConnectedPhase') }}
+                            </label>
+                            <div class="col-sm-8">
+                                <select class="form-select" v-model="inv.connected_phase">
+                                    <option
+                                        v-for="phase in connectedPhaseList"
+                                        :key="phase.key"
+                                        :value="phase.key"
+                                    >
+                                        {{ $t(`powerlimiteradmin.ConnectedPhase` + phase.value) }}
                                     </option>
                                 </select>
                             </div>
@@ -468,6 +512,17 @@ export default defineComponent({
                 { key: 1, value: 'Solar' },
                 { key: 2, value: 'SmartBuffer' },
             ],
+            phaseAssignmentList: [
+                { key: 0, value: 'Total' },
+                { key: 1, value: 'L1' },
+                { key: 2, value: 'L2' },
+                { key: 3, value: 'L3' },
+            ],
+            connectedPhaseList: [
+                { key: 1, value: 'L1' },
+                { key: 2, value: 'L2' },
+                { key: 3, value: 'L3' },
+            ],
         };
     },
     created() {
@@ -724,6 +779,8 @@ export default defineComponent({
                 newInv.lower_power_limit = this.getLowerLimitMinimum(newInv);
                 newInv.upper_power_limit = Math.max(metaInv.max_power, 300);
                 newInv.power_source = 0; // battery
+                newInv.phase_assignment = 0; // Total (legacy)
+                newInv.connected_phase = 1; // default L1
                 newInv.use_overscaling_to_compensate_shading = false;
                 newInv.allow_standby = true;
                 inverters.push(newInv);
