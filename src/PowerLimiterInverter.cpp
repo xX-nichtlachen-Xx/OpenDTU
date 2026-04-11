@@ -204,22 +204,33 @@ bool PowerLimiterInverter::update()
         // update cycle, we should assume *our* requested limit was set.
         uint32_t lastLimitCommandMillis = _spInverter->SystemConfigPara()->getLastUpdateCommand();
         if ((lastLimitCommandMillis - *_oUpdateStartMillis) < halfOfAllMillis) {
-            DTU_LOGD("limit update %s, actual limit is %.1f %% (%.0f W "
+            auto deviation = std::abs(newRelativeLimit - currentRelativeLimit);
+
+            // Hoymiles inverters sometimes echo back their *old* (pre-command)
+            // limit in the first SystemConfigPara response after a new limit is
+            // sent.  Treat that stale echo as "not yet persisted": advance the
+            // update-start mark past this response timestamp so the next
+            // incoming frame (which should carry the actual new limit) is
+            // evaluated instead of declaring the command completed prematurely.
+            if (CMD_OK == lastLimitCommandState && deviation > 2.0) {
+                DTU_LOGD("inverter returned stale limit %.1f %% (%d W) instead of "
+                        "requested %.1f %% (%d W), waiting for actual confirmation",
+                        currentRelativeLimit,
+                        static_cast<int>(currentRelativeLimit * getInverterMaxPowerWatts() / 100),
+                        newRelativeLimit,
+                        static_cast<int>(*_oTargetPowerLimitWatts));
+                _oUpdateStartMillis = lastLimitCommandMillis;
+                return true;
+            }
+
+            DTU_LOGD("limit update %s, actual limit is %.1f %% (%d W "
                     "respectively), effective %d ms after update started, "
                     "requested were %.1f %%",
                     (CMD_OK == lastLimitCommandState)?"succeeded":"FAILED",
                     currentRelativeLimit,
-                    (currentRelativeLimit * getInverterMaxPowerWatts() / 100),
+                    static_cast<int>(currentRelativeLimit * getInverterMaxPowerWatts() / 100),
                     (lastLimitCommandMillis - *_oUpdateStartMillis),
                     newRelativeLimit);
-
-            auto deviation = std::abs(newRelativeLimit - currentRelativeLimit);
-            if (CMD_OK == lastLimitCommandState && deviation > 2.0) {
-                DTU_LOGW("expected limit of %.1f %% and actual limit of "
-                        "%.1f %% mismatch by more than 2 %%, is the DPL in exclusive "
-                        "control over the inverter?",
-                        newRelativeLimit, currentRelativeLimit);
-            }
 
             _oTargetPowerLimitWatts = std::nullopt;
 

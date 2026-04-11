@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2022-2026 Thomas Basler and others
  */
+
 #include "Configuration.h"
 #include "NetworkSettings.h"
 #include "Utils.h"
@@ -215,6 +216,7 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
     target["inverter_channel_id_for_dc_voltage"] = source.InverterChannelIdForDcVoltage;
     target["inverter_restart_hour"] = source.RestartHour;
     target["total_upper_power_limit"] = source.TotalUpperPowerLimit;
+    target["max_negative_power_meter"] = source.MaxNegativePowerMeter;
 
     JsonArray inverters = target["inverters"].to<JsonArray>();
     for (size_t i = 0; i < INV_MAX_COUNT; ++i) {
@@ -226,6 +228,8 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
         t["is_governed"] = s.IsGoverned;
         t["is_behind_power_meter"] = s.IsBehindPowerMeter;
         t["power_source"] = s.PowerSource;
+        t["phase_assignment"] = s.PhaseAssignment;
+        t["connected_phase"] = s.ConnectedPhase;
         t["use_overscaling_to_compensate_shading"] = s.UseOverscaling;
         t["allow_standby"] = s.AllowStandby;
         t["lower_power_limit"] = s.LowerPowerLimit;
@@ -644,6 +648,7 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
     target.InverterChannelIdForDcVoltage = source["inverter_channel_id_for_dc_voltage"] | POWERLIMITER_INVERTER_CHANNEL_ID;
     target.RestartHour = source["inverter_restart_hour"] | POWERLIMITER_RESTART_HOUR;
     target.TotalUpperPowerLimit = source["total_upper_power_limit"] | POWERLIMITER_UPPER_POWER_LIMIT;
+    target.MaxNegativePowerMeter = source["max_negative_power_meter"] | POWERLIMITER_MAX_NEGATIVE_POWER_METER;
 
     JsonArray inverters = source["inverters"].as<JsonArray>();
     for (size_t i = 0; i < INV_MAX_COUNT; ++i) {
@@ -654,6 +659,10 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
         inv.IsGoverned = s["is_governed"] | false;
         inv.IsBehindPowerMeter = s["is_behind_power_meter"] | POWERLIMITER_IS_INVERTER_BEHIND_POWER_METER;
         inv.PowerSource = s["power_source"] | PowerLimiterInverterConfig::InverterPowerSource::Battery;
+        inv.PhaseAssignment = static_cast<POWERLIMITER_INVERTER_CONFIG_T::ReferencePhase>(
+                static_cast<int>(s["phase_assignment"] | 0));
+        inv.ConnectedPhase = static_cast<POWERLIMITER_INVERTER_CONFIG_T::ReferencePhase>(
+                static_cast<int>(s["connected_phase"] | 1)); // default L1
         inv.UseOverscaling = s["use_overscaling_to_compensate_shading"] | POWERLIMITER_USE_OVERSCALING;
         inv.AllowStandby = s["allow_standby"] | POWERLIMITER_ALLOW_STANDBY;
         inv.LowerPowerLimit = s["lower_power_limit"] | POWERLIMITER_LOWER_POWER_LIMIT;

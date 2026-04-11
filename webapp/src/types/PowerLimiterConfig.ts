@@ -27,6 +27,8 @@ export interface PowerLimiterInverterConfig {
     is_governed: boolean;
     is_behind_power_meter: boolean;
     power_source: number;
+    phase_assignment: number; // 0=Total, 1=L1, 2=L2, 3=L3
+    connected_phase: number; // physical phase: 1=L1, 2=L2, 3=L3
     use_overscaling_to_compensate_shading: boolean;
     allow_standby: boolean;
     lower_power_limit: number;
@@ -55,5 +57,6 @@ export interface PowerLimiterConfig {
     inverter_channel_id_for_dc_voltage: number;
     restart_hour: number;
     total_upper_power_limit: number;
+    max_negative_power_meter: number;
     inverters: PowerLimiterInverterConfig[];
 }

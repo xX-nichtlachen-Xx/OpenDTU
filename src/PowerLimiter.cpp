@@ -214,8 +214,25 @@ void PowerLimiterClass::loop()
 
     // since _lastCalculation and _calculationBackoffMs are initialized to
     // zero, this test is passed the first time the condition is checked.
-    if ((millis() - _lastCalculation) < _calculationBackoffMs) {
-        return announceStatus(Status::Stable);
+    // Exception: if the negative export limit is actively exceeded, bypass
+    // the backoff so inverter reductions fire on every loop cycle, not once
+    // per backoff window (which can be up to 1024 ms when the system was
+    // previously stable).
+    {
+        auto const maxNeg = config.PowerLimiter.MaxNegativePowerMeter;
+        bool negExportExceeded = (maxNeg < 0)
+            && PowerMeter.isDataValid()
+            && (PowerMeter.getPowerTotal() < static_cast<float>(maxNeg));
+
+        if (!negExportExceeded
+                && (millis() - _lastCalculation) < _calculationBackoffMs) {
+            return announceStatus(Status::Stable);
+        }
+
+        if (negExportExceeded) {
+            // Reset backoff so the very next cycle also fires immediately.
+            _calculationBackoffMs = _calculationBackoffMsDefault;
+        }
     }
 
     auto autoRestartInverters = [this]() -> void {
@@ -383,29 +400,226 @@ void PowerLimiterClass::loop()
             config.PowerLimiter.ConductionLosses);
     }
 
-    uint16_t inverterTotalPower = calcTargetOutput();
+    // Determine whether any inverter has an explicit per-phase assignment.
+    // If none do, use the legacy single-pass (Total) path for full backward compat.
+    bool hasPhasedInverters = false;
+    for (auto const& upInv : _inverters) {
+        // ReferencePhase::Total == 0; any other value means a specific phase
+        if (static_cast<uint8_t>(upInv->getPhaseAssignment()) != 0u) {
+            hasPhasedInverters = true;
+            break;
+        }
+    }
 
-    auto totalAllowance = config.PowerLimiter.TotalUpperPowerLimit;
-    inverterTotalPower = std::min(inverterTotalPower, totalAllowance);
+    uint16_t totalCovered = 0;
 
-    auto coveredBySolar = updateInverterLimits(inverterTotalPower, sSolarPoweredFilter, sSolarPoweredExpression);
-    auto remainingAfterSolar = (inverterTotalPower >= coveredBySolar) ? inverterTotalPower - coveredBySolar : 0;
-    auto coveredBySmartBuffer = updateInverterLimits(remainingAfterSolar, sSmartBufferPoweredFilter, sSmartBufferPoweredExpression);
-    auto remainingAfterSmartBuffer = (remainingAfterSolar >= coveredBySmartBuffer) ? remainingAfterSolar - coveredBySmartBuffer : 0;
-    auto powerBusUsage = calcPowerBusUsage(remainingAfterSmartBuffer);
-    auto coveredByBattery = updateInverterLimits(powerBusUsage, sBatteryPoweredFilter, sBatteryPoweredExpression);
+    // ── Max negative power (export limit) ─────────────────────────────
+    // When configured, check the TOTAL meter against the limit.  If it is
+    // more negative than allowed, compute the overshoot so that every
+    // regulatePhase / calcTargetOutput call can subtract it from its
+    // target.  This reduces ALL inverters (every phase) proportionally,
+    // preventing excessive grid export.
+    // maxNegOvershoot > 0 means the total meter is too negative by that
+    // many watts.  0 means no overshoot (or feature disabled).
+    // When full solar passthrough is active, the export limit is intentionally
+    // bypassed — we want all solar pushed to AC regardless of grid export.
+    uint16_t maxNegOvershoot = 0;
+    if (!isFullSolarPassthroughActive()) {
+        auto maxNeg = config.PowerLimiter.MaxNegativePowerMeter;
+        if (maxNeg < 0 && PowerMeter.isDataValid()) {
+            auto totalMeter = static_cast<int16_t>(
+                PowerMeter.getPowerTotal() + (PowerMeter.getPowerTotal() > 0 ? 0.5f : -0.5f));
+            if (totalMeter < maxNeg) {
+                maxNegOvershoot = static_cast<uint16_t>(maxNeg - totalMeter);
+                DTU_LOGD("max negative limit %d W exceeded (total meter %d W), "
+                         "global overshoot %u W — reducing all inverters",
+                         maxNeg, totalMeter, maxNegOvershoot);
+            }
+        }
+    }
+
+    if (!hasPhasedInverters) {
+        // ── Legacy single-pass (all inverters assigned to Total) ──────────
+        uint16_t inverterTotalPower = calcTargetOutput(0);
+        // apply max-negative overshoot reduction
+        inverterTotalPower = (inverterTotalPower > maxNegOvershoot)
+                           ? inverterTotalPower - maxNegOvershoot : 0;
+        inverterTotalPower = std::min(inverterTotalPower,
+                static_cast<uint16_t>(config.PowerLimiter.TotalUpperPowerLimit));
+
+        auto coveredBySolar = updateInverterLimits(inverterTotalPower, sSolarPoweredFilter, sSolarPoweredExpression);
+        auto remainingAfterSolar = (inverterTotalPower >= coveredBySolar) ? inverterTotalPower - coveredBySolar : 0;
+        auto coveredBySmartBuffer = updateInverterLimits(remainingAfterSolar, sSmartBufferPoweredFilter, sSmartBufferPoweredExpression);
+        auto remainingAfterSmartBuffer = (remainingAfterSolar >= coveredBySmartBuffer) ? remainingAfterSolar - coveredBySmartBuffer : 0;
+        auto powerBusUsage = calcPowerBusUsage(remainingAfterSmartBuffer);
+        auto coveredByBattery = updateInverterLimits(powerBusUsage, sBatteryPoweredFilter, sBatteryPoweredExpression);
+
+        totalCovered = coveredBySolar + coveredBySmartBuffer + coveredByBattery;
+    } else {
+        // ── Multi-phase pass ──────────────────────────────────────────────
+        // Phase Pass: L1, L2, L3 — each regulated independently.
+        // Unmet demand from each phase accumulates in the residual pool.
+        //
+        // The DC bus budget (solar passthrough + battery discharge
+        // allowance) is a SHARED resource.  Compute it once and pass
+        // it through every regulatePhase() call so that battery-
+        // powered inverters across all phases collectively never
+        // exceed the real limit.
+        uint16_t dcBusBudgetAc = calcPowerBusUsage(UINT16_MAX);
+        uint16_t const dcBusBudgetAcInitial = dcBusBudgetAc; // pool: track consumption across phases
+        uint16_t globalAllowanceAc = config.PowerLimiter.TotalUpperPowerLimit;
+
+        uint16_t overshootByAssignment[4] = { 0, 0, 0, 0 };
+        if (maxNegOvershoot > 0) {
+            uint32_t outputByAssignment[4] = { 0, 0, 0, 0 };
+            uint32_t totalOutputForOvershoot = 0;
+
+            for (auto const& upInv : _inverters) {
+                if (!upInv->isEligible()) { continue; }
+
+                auto assignment = static_cast<uint8_t>(upInv->getPhaseAssignment());
+                if (assignment > 3u) { continue; }
+
+                auto output = upInv->getCurrentOutputAcWatts();
+                outputByAssignment[assignment] += output;
+                totalOutputForOvershoot += output;
+            }
+
+            if (totalOutputForOvershoot > 0) {
+                uint32_t assignedOvershoot = 0;
+                uint8_t highestOutputAssignment = 0;
+
+                for (uint8_t assignment = 0; assignment < 4; ++assignment) {
+                    if (outputByAssignment[assignment] > outputByAssignment[highestOutputAssignment]) {
+                        highestOutputAssignment = assignment;
+                    }
+
+                    auto weightedOvershoot = static_cast<uint32_t>(maxNegOvershoot) * outputByAssignment[assignment];
+                    overshootByAssignment[assignment] = static_cast<uint16_t>(weightedOvershoot / totalOutputForOvershoot);
+                    assignedOvershoot += overshootByAssignment[assignment];
+                }
+
+                if (assignedOvershoot < maxNegOvershoot) {
+                    overshootByAssignment[highestOutputAssignment] += (maxNegOvershoot - assignedOvershoot);
+                }
+
+                DTU_LOGD("weighted overshoot distribution total=%u W: Total=%u W, L1=%u W, L2=%u W, L3=%u W",
+                         maxNegOvershoot,
+                         overshootByAssignment[0],
+                         overshootByAssignment[1],
+                         overshootByAssignment[2],
+                         overshootByAssignment[3]);
+            }
+        }
+
+        DTU_LOGD("global DC bus budget: %u W AC, global allowance: %u W AC",
+                 dcBusBudgetAc, globalAllowanceAc);
+
+        int16_t residualL1 = 0, residualL2 = 0, residualL3 = 0;
+        totalCovered += regulatePhase(1, residualL1, dcBusBudgetAc, globalAllowanceAc, overshootByAssignment[1]);
+        totalCovered += regulatePhase(2, residualL2, dcBusBudgetAc, globalAllowanceAc, overshootByAssignment[2]);
+        totalCovered += regulatePhase(3, residualL3, dcBusBudgetAc, globalAllowanceAc, overshootByAssignment[3]);
+
+        // Residual Pass: collect all unmet demand and redistribute to
+        // Total-assigned inverters (and phase-assigned inverters that still
+        // have headroom, since regulatePhase(0) uses all inverters).
+        int32_t residualPool = static_cast<int32_t>(residualL1)
+                             + static_cast<int32_t>(residualL2)
+                             + static_cast<int32_t>(residualL3);
+
+        DTU_LOGD("residual pool: %d W (L1:%d L2:%d L3:%d)",
+                 residualPool, residualL1, residualL2, residualL3);
+
+        // Check if any phase-assigned inverter has a pending limit change
+        // scheduled by the regulatePhase(L1/L2/L3) calls above. If so, skip
+        // regulating Total inverters this cycle — wait for the phase changes
+        // to be applied and reflected in the meter before adjusting Total,
+        // to avoid overshoot oscillation.
+        bool phaseInverterPending = false;
+        for (auto const& upInv : _inverters) {
+            if (static_cast<uint8_t>(upInv->getPhaseAssignment()) == 0u) { continue; }
+            if (upInv->hasTargetLimitPending()) {
+                phaseInverterPending = true;
+                break;
+            }
+        }
+
+        uint16_t totalAssignedCurrentOutput = 0;
+        for (auto const& upInv : _inverters) {
+            if (static_cast<uint8_t>(upInv->getPhaseAssignment()) != 0u) { continue; }
+            if (!upInv->isEligible()) { continue; }
+
+            totalAssignedCurrentOutput += upInv->getCurrentOutputAcWatts();
+        }
+
+        uint16_t totalRegulationTarget = calcTargetOutput(0);
+        if (overshootByAssignment[0] > 0) {
+            totalRegulationTarget = (totalRegulationTarget > overshootByAssignment[0])
+                                  ? totalRegulationTarget - overshootByAssignment[0] : 0;
+        }
+        totalRegulationTarget = std::min(totalRegulationTarget, globalAllowanceAc);
+
+        bool totalNeedsDecrease = totalAssignedCurrentOutput > totalRegulationTarget;
+
+        if (phaseInverterPending && !totalNeedsDecrease) {
+            DTU_LOGD("phase inverters have pending limit changes, "
+                     "deferring Total regulation to next cycle");
+        } else {
+            // Regulate Total-assigned inverters only when phase inverters are
+            // settled, so the meter readings reflect their actual output.
+            // But if Total already needs to ramp down, do that immediately so
+            // export limiting is not blocked by pending phase updates.
+            int16_t unused;
+            totalCovered += regulatePhase(0, unused, dcBusBudgetAc, globalAllowanceAc, overshootByAssignment[0]);
+        }
+
+        // Full solar passthrough: push all available solar through battery
+        // inverters, even beyond per-phase demand — mirrors the legacy single-
+        // phase path. We know how much the phase passes already consumed from
+        // the pool (dcBusBudgetAcInitial - dcBusBudgetAc). If there is still
+        // un-pushed solar (dcBusBudgetAc > 0 after phases), override all
+        // battery inverters to the full solar target so the remainder is used.
+        if (isFullSolarPassthroughActive()) {
+            auto solarDc = getSolarPassthroughPower();
+            auto solarAc = dcPowerBusToInverterAc(solarDc);
+            uint16_t usedByPhases = (dcBusBudgetAcInitial > dcBusBudgetAc)
+                                  ? dcBusBudgetAcInitial - dcBusBudgetAc : 0;
+            // Also cap by global allowance remaining
+            auto fspTarget = std::min(solarAc, globalAllowanceAc);
+            DTU_LOGD("full solar-passthrough (multi-phase): solar %u W AC, "
+                     "pool initial %u W, used by phases %u W, remaining %u W, "
+                     "global allowance remaining %u W, fsp target %u W",
+                     solarAc, dcBusBudgetAcInitial, usedByPhases, dcBusBudgetAc,
+                     globalAllowanceAc, fspTarget);
+            if (dcBusBudgetAc > 0 && fspTarget > 0) {
+                // Still solar left in pool — push all battery inverters up
+                // to the full solar target collectively (capped by global limit).
+                updateInverterLimits(fspTarget, sBatteryPoweredFilter,
+                    std::string(sBatteryPoweredExpression) + "/full-solar-pt");
+            }
+        }
+    }
 
     for (auto const &upInv : _inverters) { upInv->debug(); }
 
-    _lastExpectedInverterOutput = coveredBySolar + coveredBySmartBuffer + coveredByBattery;
+    _lastExpectedInverterOutput = totalCovered;
 
     bool limitUpdated = updateInverters();
 
     _lastCalculation = millis();
 
     if (!limitUpdated) {
-        // increase polling backoff if system seems to be stable
-        _calculationBackoffMs = std::min<uint32_t>(1024, _calculationBackoffMs * 2);
+        // Increase polling backoff only when the export limit is not actively
+        // exceeded.  If we are still over the limit, keep the fast cycle.
+        auto const maxNeg = config.PowerLimiter.MaxNegativePowerMeter;
+        bool negExportExceeded = (maxNeg < 0)
+            && PowerMeter.isDataValid()
+            && !isFullSolarPassthroughActive()
+            && (PowerMeter.getPowerTotal() < static_cast<float>(maxNeg));
+
+        if (!negExportExceeded) {
+            _calculationBackoffMs = std::min<uint32_t>(1024, _calculationBackoffMs * 2);
+        }
         return announceStatus(Status::Stable);
     }
 
@@ -552,17 +766,17 @@ uint8_t PowerLimiterClass::getPowerLimiterState() const
         ? PL_UI_STATE_USE_SOLAR_AND_BATTERY : PL_UI_STATE_USE_SOLAR_ONLY;
 }
 
-uint16_t PowerLimiterClass::calcTargetOutput() const
+uint16_t PowerLimiterClass::calcTargetOutput(uint8_t phase) const
 {
     auto const& config = Configuration.get();
     auto targetConsumption = config.PowerLimiter.TargetPowerConsumption;
     auto baseLoad = config.PowerLimiter.BaseLoadLimit;
 
     auto meterValid = PowerMeter.isDataValid();
-    auto meterValue = PowerMeter.getPowerTotal();
+    float meterValue = getMeterValueForPhase(phase);
 
-    DTU_LOGD("targeting %d W, base load is %u W, power meter reads %.1f W (%s)",
-            targetConsumption, baseLoad, meterValue,
+    DTU_LOGD("phase %u: targeting %d W, base load is %u W, power meter reads %.1f W (%s)",
+            phase, targetConsumption, baseLoad, meterValue,
             (meterValid?"valid":"stale"));
 
     if (!meterValid) { return baseLoad; }
@@ -572,17 +786,37 @@ uint16_t PowerLimiterClass::calcTargetOutput() const
     // and the power meter reading
     auto roundedMeterValue = static_cast<int16_t>(meterValue + (meterValue > 0 ? 0.5 : -0.5));
 
+    // For per-phase regulation: Total-assigned inverters that physically feed
+    // into this phase push the phase meter reading negative, but they are
+    // managed by the Total regulation pass, not by this per-phase pass.
+    // Add their output back so we see the "net consumption" on this phase
+    // without the Total inverter's contribution.
+    if (phase != 0) {
+        for (auto const& upInv : _inverters) {
+            auto pa = static_cast<uint8_t>(upInv->getPhaseAssignment());
+            if (pa != 0) { continue; } // only Total-assigned inverters
+
+            auto cp = static_cast<uint8_t>(upInv->getConnectedPhase());
+            if (cp != phase) { continue; } // only those feeding into this phase
+
+            roundedMeterValue += upInv->getCurrentOutputAcWatts();
+            DTU_LOGD("phase %u: compensating Total inverter %s output %d W on this phase",
+                    phase, upInv->getSerialStr(), upInv->getCurrentOutputAcWatts());
+        }
+    }
+
     // we have to correct the meter reading if there are inverters connected to
     // AC between the grid (billing meter) and OpenDTU-OnBattery's power meter.
-    // example: billing meter in the basement, inverter connected next to it,
-    // and an additional power meter in the flat which is read by OpenDTU-
-    // OnBattery. in that case power produced by the respective inverter is
-    // still registered as consumed power by the power meter as it flows into
-    // the household, even though it is not billed. essentially, we derive the
-    // billing meter's reading, whose value we actually want to optimize to
-    // reach the target consumption setting value.
+    // For per-phase regulation we only correct using inverters assigned to this
+    // phase (or all inverters for the Total pass).
     for (auto const& upInv : _inverters) {
         if (upInv->isBehindPowerMeter()) { continue; }
+
+        // phase-aware: only subtract inverters on this phase, or all for Total
+        if (phase != 0) {
+            auto phaseAssignment = static_cast<uint8_t>(upInv->getPhaseAssignment());
+            if (phaseAssignment != phase) { continue; }
+        }
 
         // it is to be expected that solar-powered inverters are unreachable
         // during the night, in which case we don't want to account for their
@@ -605,7 +839,21 @@ uint16_t PowerLimiterClass::calcTargetOutput() const
         // inverters in standby report 0 W output, so we can iterate them.
         if (!upInv->isEligible()) { continue; }
 
-        currentTotalOutput += upInv->getCurrentOutputAcWatts();
+        // phase-aware: only count output of inverters assigned to this phase.
+        // For phase=0 (Total pass) this means only Total-assigned inverters —
+        // including ALL phases would inflate the target far beyond what the
+        // Total-assigned inverters can physically produce, causing them to stay
+        // pegged at their hardware maximum permanently.
+        auto phaseAssignment = static_cast<uint8_t>(upInv->getPhaseAssignment());
+        if (phaseAssignment != phase) { continue; }
+
+        // Use the expected (commanded) output rather than the actual reported
+        // AC output.  After a limit command is sent and ACK'd, the inverter's
+        // actual power statistics lag by several seconds.  If we use the stale
+        // actual value here, calcTargetOutput() underestimates currentTotalOutput
+        // while the meter has already reacted to the new power level, causing
+        // DPL to immediately issue another increase command and oscillate.
+        currentTotalOutput += upInv->getExpectedOutputAcWatts();
     }
 
     // this value is negative if we are exporting more than "targetConsumption"
@@ -618,6 +866,100 @@ uint16_t PowerLimiterClass::calcTargetOutput() const
     if (targetOutput < 0) { return 0; }
 
     return static_cast<uint16_t>(targetOutput);
+}
+
+float PowerLimiterClass::getMeterValueForPhase(uint8_t phase) const
+{
+    if (phase == 0) { return PowerMeter.getPowerTotal(); }
+    auto oPhase = PowerMeter.getPowerPhase(phase);
+    // fall back to total if this provider doesn't supply per-phase data
+    return oPhase.value_or(PowerMeter.getPowerTotal());
+}
+
+/**
+ * Run one full regulation pass for the given phase (1=L1,2=L2,3=L3) or for
+ * the residual/total pool (phase=0).  The Solar→SmartBuffer→Battery cascade
+ * is applied only to inverters whose PhaseAssignment matches `phase`.
+ * For phase=0 (residual pass) ALL inverters participate regardless of
+ * PhaseAssignment so that any leftover demand can be absorbed.
+ *
+ * Returns the total watts covered.  `residual` is set to unmet demand
+ * (positive = demand not covered, negative = over-supplied).
+ */
+uint16_t PowerLimiterClass::regulatePhase(uint8_t phase, int16_t& residual,
+                                          uint16_t& dcBusBudgetRemainingAc,
+                                          uint16_t& globalAllowanceRemainingAc,
+                                          uint16_t maxNegOvershoot)
+{
+    // Build a phase filter that layers on top of the power-source filter.
+    // For phase=0 (Total/residual) only Total-assigned inverters are eligible;
+    // per-phase inverters were already regulated in their own pass and must
+    // not have their limits overwritten here.
+    auto phaseFilter = [phase](PowerLimiterInverter const& inv) -> bool {
+        return static_cast<uint8_t>(inv.getPhaseAssignment()) == phase;
+    };
+
+    auto solarPhaseFilter = [&](PowerLimiterInverter const& inv) {
+        return sSolarPoweredFilter(inv) && phaseFilter(inv);
+    };
+    auto smartBufferPhaseFilter = [&](PowerLimiterInverter const& inv) {
+        return sSmartBufferPoweredFilter(inv) && phaseFilter(inv);
+    };
+    auto batteryPhaseFilter = [&](PowerLimiterInverter const& inv) {
+        return sBatteryPoweredFilter(inv) && phaseFilter(inv);
+    };
+
+    std::string phaseExpr = (phase == 0) ? "residual/total" :
+                            (phase == 1) ? "L1" :
+                            (phase == 2) ? "L2" : "L3";
+
+    uint16_t inverterTotalPower = calcTargetOutput(phase);
+
+    // Apply the global max-negative overshoot reduction so that ALL phases
+    // (and Total) collectively ramp down when the total meter is too negative.
+    if (maxNegOvershoot > 0) {
+        auto before = inverterTotalPower;
+        inverterTotalPower = (inverterTotalPower > maxNegOvershoot)
+                           ? inverterTotalPower - maxNegOvershoot : 0;
+        DTU_LOGD("phase %u: max-neg reduction %u W -> %u W (overshoot %u W)",
+                 phase, before, inverterTotalPower, maxNegOvershoot);
+    }
+
+    // Cap by the shared global allowance remaining (enforces TotalUpperPowerLimit
+    // across all phases collectively, not just per-phase).
+    inverterTotalPower = std::min(inverterTotalPower, globalAllowanceRemainingAc);
+
+    auto coveredBySolar = updateInverterLimits(inverterTotalPower,
+            solarPhaseFilter, sSolarPoweredExpression + std::string("/") + phaseExpr);
+    auto remainingAfterSolar = (inverterTotalPower >= coveredBySolar)
+                                 ? inverterTotalPower - coveredBySolar : 0;
+
+    auto coveredBySmartBuffer = updateInverterLimits(remainingAfterSolar,
+            smartBufferPhaseFilter, sSmartBufferPoweredExpression + std::string("/") + phaseExpr);
+    auto remainingAfterSmartBuffer = (remainingAfterSolar >= coveredBySmartBuffer)
+                                       ? remainingAfterSolar - coveredBySmartBuffer : 0;
+
+    // Cap battery usage by remaining DC bus budget so that the total
+    // battery-powered output across all phases never exceeds the real
+    // solar-passthrough + battery-discharge allowance.
+    auto powerBusUsage = std::min(static_cast<uint16_t>(remainingAfterSmartBuffer),
+                                  dcBusBudgetRemainingAc);
+    auto coveredByBattery = updateInverterLimits(powerBusUsage,
+            batteryPhaseFilter, sBatteryPoweredExpression + std::string("/") + phaseExpr);
+    dcBusBudgetRemainingAc -= std::min(dcBusBudgetRemainingAc,
+                                       static_cast<uint16_t>(coveredByBattery));
+
+    uint16_t covered = coveredBySolar + coveredBySmartBuffer + coveredByBattery;
+    residual = static_cast<int16_t>(inverterTotalPower) - static_cast<int16_t>(covered);
+
+    // Consume from the global allowance pool.
+    globalAllowanceRemainingAc -= std::min(globalAllowanceRemainingAc,
+                                           static_cast<uint16_t>(covered));
+
+    DTU_LOGD("phase %u: target %u W, covered %u W, residual %d W, global allowance remaining %u W",
+             phase, inverterTotalPower, covered, residual, globalAllowanceRemainingAc);
+
+    return covered;
 }
 
 /**
@@ -667,6 +1009,24 @@ uint16_t PowerLimiterClass::updateInverterLimits(uint16_t powerRequested,
     // that the battery gets fully discharged.
     if (powerRequested == 0) {
         hysteresis = 0;
+    }
+
+    // Suppress hysteresis for increases when powerRequested equals the DC bus
+    // budget cap (i.e. the solar passthrough limit).  Without this, an inverter
+    // at e.g. 79 W with a solar budget of 116 W would have diff=37 W, which is
+    // below typical hysteresis (40 W), permanently blocking it from reaching
+    // the available solar power.
+    if (diff > 0 && powerRequested == producing + static_cast<uint16_t>(diff)) {
+        // Check if every matching inverter is already at or above powerRequested;
+        // if not, and the requested amount is the hard budget cap, waive hysteresis.
+        // We detect the budget-cap case conservatively: if the increase is smaller
+        // than hysteresis but there are no solar/battery inverters that could
+        // provide more than powerRequested, treat hysteresis as 0.
+        bool allAtMax = true;
+        for (auto const pInv : matchingInverters) {
+            if (pInv->getMaxIncreaseWatts() > 0) { allAtMax = false; break; }
+        }
+        if (!allAtMax) { hysteresis = std::min(hysteresis, static_cast<uint16_t>(diff)); }
     }
 
     if (std::abs(diff) < static_cast<int32_t>(hysteresis)) { return producing; }

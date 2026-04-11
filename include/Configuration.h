@@ -153,6 +153,10 @@ struct POWERLIMITER_INVERTER_CONFIG_T {
 
     enum InverterPowerSource { Battery = 0, Solar = 1, SmartBuffer = 2 };
     InverterPowerSource PowerSource;
+
+    enum ReferencePhase { Total = 0, L1 = 1, L2 = 2, L3 = 3 };
+    ReferencePhase PhaseAssignment;
+    ReferencePhase ConnectedPhase; // physical phase the inverter feeds into (L1/L2/L3)
 };
 using PowerLimiterInverterConfig = struct POWERLIMITER_INVERTER_CONFIG_T;
 
@@ -177,6 +181,7 @@ struct POWERLIMITER_CONFIG_T {
     uint8_t InverterChannelIdForDcVoltage;
     uint8_t RestartHour;
     uint16_t TotalUpperPowerLimit;
+    int16_t MaxNegativePowerMeter; // 0 = disabled, negative = max allowed export
     PowerLimiterInverterConfig Inverters[INV_MAX_COUNT];
 };
 using PowerLimiterConfig = struct POWERLIMITER_CONFIG_T;

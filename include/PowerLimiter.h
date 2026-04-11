@@ -90,7 +90,8 @@ private:
     float getBatteryVoltage(bool log = false) const;
     uint16_t dcPowerBusToInverterAc(uint16_t dcPower) const;
     void unconditionalFullSolarPassthrough();
-    uint16_t calcTargetOutput() const;
+    // phase: 0=Total (sum), 1=L1, 2=L2, 3=L3
+    uint16_t calcTargetOutput(uint8_t phase) const;
     using inverter_filter_t = std::function<bool(PowerLimiterInverter const&)>;
     uint16_t updateInverterLimits(uint16_t powerRequested, inverter_filter_t filter, std::string const& filterExpression);
     uint16_t calcPowerBusUsage(uint16_t powerRequested) const;
@@ -98,6 +99,23 @@ private:
     uint16_t getSolarPassthroughPower() const;
     std::optional<uint16_t> getBatteryDischargeLimit() const;
     float getBatteryInvertersOutputAcWatts() const;
+
+    // Returns meter value for the given phase (1=L1,2=L2,3=L3) or
+    // falls back to PowerTotal when phase data is unavailable.
+    float getMeterValueForPhase(uint8_t phase) const;
+
+    // One regulation pass for a single phase (or Total=0).
+    // Returns covered watts and fills residual via reference.
+    // dcBusBudgetRemainingAc is the shared DC bus budget (solar passthrough
+    // + battery allowance) in AC watts.  It is decremented as battery-
+    // powered inverters consume from it across successive phase passes.
+    // globalAllowanceRemainingAc is the shared TotalUpperPowerLimit budget
+    // in AC watts.  It is decremented as any inverter type covers demand,
+    // enforcing the global cap across all phases.
+    uint16_t regulatePhase(uint8_t phase, int16_t& residual,
+                           uint16_t& dcBusBudgetRemainingAc,
+                           uint16_t& globalAllowanceRemainingAc,
+                           uint16_t maxNegOvershoot);
 
     bool testThreshold(float socThreshold, float voltThreshold,
             std::function<bool(float, float)> compare) const;
