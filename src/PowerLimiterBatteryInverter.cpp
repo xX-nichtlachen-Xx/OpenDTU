@@ -42,17 +42,19 @@ uint16_t PowerLimiterBatteryInverter::applyReduction(uint16_t reduction, bool al
 
     if (reduction == 0) { return 0; }
 
-    auto low = std::min(getCurrentLimitWatts(), getCurrentOutputAcWatts());
-    if (low <= _config.LowerPowerLimit) {
+    auto currentOutput = getCurrentOutputAcWatts();
+    if (currentOutput <= _config.LowerPowerLimit) {
         if (allowStandby && _config.AllowStandby) {
             standby();
-            return std::min(reduction, getCurrentOutputAcWatts());
+            return std::min(reduction, currentOutput);
         }
         return 0;
     }
 
-    if ((getCurrentLimitWatts() - _config.LowerPowerLimit) >= reduction) {
-        setAcOutput(getCurrentLimitWatts() - reduction);
+    // use actual AC output as baseline, not the committed limit, because
+    // updateInverterLimits() computes the reduction from actual output.
+    if ((currentOutput - _config.LowerPowerLimit) >= reduction) {
+        setAcOutput(currentOutput - reduction);
         return reduction;
     }
 
@@ -74,7 +76,11 @@ uint16_t PowerLimiterBatteryInverter::applyIncrease(uint16_t increase)
     // do not wake inverter up if it would produce too much power
     if (!isProducing() && _config.LowerPowerLimit > increase) { return 0; }
 
-    auto baseline = getCurrentLimitWatts();
+    // use actual AC output as baseline, not the committed limit, because
+    // updateInverterLimits() computes the increase from actual output.
+    // using getCurrentLimitWatts() here would overshoot when the inverter
+    // is still ramping up to a previously ACK'd limit.
+    auto baseline = getCurrentOutputAcWatts();
 
     // battery-powered inverters in standby can have an arbitrary limit, yet
     // the baseline is 0 in case we are about to wake it up from standby.
