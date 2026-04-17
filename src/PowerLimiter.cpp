@@ -1047,6 +1047,17 @@ uint16_t PowerLimiterClass::updateInverterLimits(uint16_t powerRequested,
 
         std::sort(matchingInverters.begin(), matchingInverters.end(),
                 [allowStandby](auto const a, auto const b) {
+                    // When standby is needed, prefer to standby phase-assigned
+                    // inverters first and keep Total-assigned ones running.
+                    // Phase assignment 0 = Total (highest priority to keep).
+                    if (allowStandby) {
+                        auto aIsTotal = (static_cast<uint8_t>(a->getPhaseAssignment()) == 0);
+                        auto bIsTotal = (static_cast<uint8_t>(b->getPhaseAssignment()) == 0);
+                        if (aIsTotal != bIsTotal) {
+                            // phase-assigned (non-Total) sorts first → gets reduced/standby first
+                            return !aIsTotal;
+                        }
+                    }
                     auto aReduction = a->getMaxReductionWatts(allowStandby);
                     auto bReduction = b->getMaxReductionWatts(allowStandby);
                     return aReduction > bReduction;
