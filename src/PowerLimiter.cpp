@@ -561,6 +561,22 @@ void PowerLimiterClass::loop()
 
         bool totalNeedsDecrease = totalAssignedCurrentOutput > totalRegulationTarget;
 
+        // Battery STOP state must not be deferred — Total-assigned battery
+        // inverters need to be shut down immediately regardless of pending
+        // phase changes, otherwise the deferral keeps them running
+        // indefinitely while phase standby commands keep retriggering.
+        if (_batteryState == BatteryState::STOP) {
+            bool hasTotalBatteryInverter = false;
+            for (auto const& upInv : _inverters) {
+                if (static_cast<uint8_t>(upInv->getPhaseAssignment()) != 0u) { continue; }
+                if (upInv->isBatteryPowered() && upInv->isProducing()) {
+                    hasTotalBatteryInverter = true;
+                    break;
+                }
+            }
+            if (hasTotalBatteryInverter) { totalNeedsDecrease = true; }
+        }
+
         if (phaseInverterPending && !totalNeedsDecrease) {
             DTU_LOGD("phase inverters have pending limit changes, "
                      "deferring Total regulation to next cycle");
