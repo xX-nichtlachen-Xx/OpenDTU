@@ -955,15 +955,18 @@ uint16_t PowerLimiterClass::regulatePhase(uint8_t phase, int16_t& residual,
     auto remainingAfterSmartBuffer = (remainingAfterSolar >= coveredBySmartBuffer)
                                        ? remainingAfterSolar - coveredBySmartBuffer : 0;
 
-    // Cap battery usage by remaining DC bus budget so that the total
-    // battery-powered output across all phases never exceeds the real
-    // solar-passthrough + battery-discharge allowance.
-    auto powerBusUsage = std::min(static_cast<uint16_t>(remainingAfterSmartBuffer),
-                                  dcBusBudgetRemainingAc);
-    auto coveredByBattery = updateInverterLimits(powerBusUsage,
+        uint16_t coveredByBattery = 0;
+        if (!isFullSolarPassthroughActive()) {
+        // Cap battery usage by remaining DC bus budget so that the total
+        // battery-powered output across all phases never exceeds the real
+        // solar-passthrough + battery-discharge allowance.
+        auto powerBusUsage = std::min(static_cast<uint16_t>(remainingAfterSmartBuffer),
+                          dcBusBudgetRemainingAc);
+        coveredByBattery = updateInverterLimits(powerBusUsage,
             batteryPhaseFilter, sBatteryPoweredExpression + std::string("/") + phaseExpr);
-    dcBusBudgetRemainingAc -= std::min(dcBusBudgetRemainingAc,
-                                       static_cast<uint16_t>(coveredByBattery));
+        dcBusBudgetRemainingAc -= std::min(dcBusBudgetRemainingAc,
+                           static_cast<uint16_t>(coveredByBattery));
+        }
 
     uint16_t covered = coveredBySolar + coveredBySmartBuffer + coveredByBattery;
     residual = static_cast<int16_t>(inverterTotalPower) - static_cast<int16_t>(covered);
