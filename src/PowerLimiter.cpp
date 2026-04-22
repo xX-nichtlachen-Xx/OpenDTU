@@ -600,16 +600,32 @@ void PowerLimiterClass::loop()
             auto solarAc = dcPowerBusToInverterAc(solarDc);
             uint16_t usedByPhases = (dcBusBudgetAcInitial > dcBusBudgetAc)
                                   ? dcBusBudgetAcInitial - dcBusBudgetAc : 0;
-            // Also cap by global allowance remaining
-            auto fspTarget = std::min(solarAc, globalAllowanceAc);
+            // Also cap by global allowance remaining.
+            // FSP pushes at least all available solar through, but if demand
+            // exceeds solar (and battery discharge is allowed), also serve the
+            // excess from the battery. Demand is estimated as
+            // totalRegulationTarget (Total-assigned inverter need) +
+            // residualPool (per-phase unmet demand skipped in the phase passes).
+            uint16_t demandTarget = 0;
+            {
+                int32_t combined = static_cast<int32_t>(totalRegulationTarget)
+                                 + residualPool;
+                if (combined > 0) {
+                    demandTarget = static_cast<uint16_t>(
+                        std::min<int32_t>(combined, globalAllowanceAc));
+                }
+            }
+            auto fspTarget = std::min(
+                std::max(solarAc, demandTarget),
+                globalAllowanceAc);
             DTU_LOGD("full solar-passthrough (multi-phase): solar %u W AC, "
                      "pool initial %u W, used by phases %u W, remaining %u W, "
-                     "global allowance remaining %u W, fsp target %u W",
+                     "global allowance remaining %u W, demand %u W, fsp target %u W",
                      solarAc, dcBusBudgetAcInitial, usedByPhases, dcBusBudgetAc,
-                     globalAllowanceAc, fspTarget);
+                     globalAllowanceAc, demandTarget, fspTarget);
             if (dcBusBudgetAc > 0 && fspTarget > 0) {
-                // Still solar left in pool — push all battery inverters up
-                // to the full solar target collectively (capped by global limit).
+                // Push all battery inverters up to fspTarget collectively
+                // (at least solar, more if demand exceeds solar).
                 updateInverterLimits(fspTarget, sBatteryPoweredFilter,
                     std::string(sBatteryPoweredExpression) + "/full-solar-pt");
             }
