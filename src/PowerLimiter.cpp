@@ -603,17 +603,19 @@ void PowerLimiterClass::loop()
             // Also cap by global allowance remaining.
             // FSP pushes at least all available solar through, but if demand
             // exceeds solar (and battery discharge is allowed), also serve the
-            // excess from the battery. Demand is estimated as
-            // totalRegulationTarget (Total-assigned inverter need) +
-            // residualPool (per-phase unmet demand skipped in the phase passes).
+            // excess from the battery. Use the larger of:
+            //  - totalRegulationTarget (Total-assigned inverter need), and
+            //  - residualPool (per-phase unmet demand skipped in phase passes)
+            // to avoid double-counting demand by summing both values.
             uint16_t demandTarget = 0;
             {
-                int32_t combined = static_cast<int32_t>(totalRegulationTarget)
-                                 + residualPool;
-                if (combined > 0) {
-                    demandTarget = static_cast<uint16_t>(
-                        std::min<int32_t>(combined, globalAllowanceAc));
+                uint16_t residualDemand = 0;
+                if (residualPool > 0) {
+                    residualDemand = static_cast<uint16_t>(
+                        std::min<int32_t>(residualPool, globalAllowanceAc));
                 }
+                demandTarget = std::max(totalRegulationTarget, residualDemand);
+                demandTarget = std::min(demandTarget, globalAllowanceAc);
             }
             auto fspTarget = std::min(
                 std::max(solarAc, demandTarget),
