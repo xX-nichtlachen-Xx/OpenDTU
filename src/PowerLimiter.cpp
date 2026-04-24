@@ -577,7 +577,9 @@ void PowerLimiterClass::loop()
             if (hasTotalBatteryInverter) { totalNeedsDecrease = true; }
         }
 
-        if (phaseInverterPending && !totalNeedsDecrease) {
+        if (phaseInverterPending
+            && !totalNeedsDecrease
+            && !isFullSolarPassthroughActive()) {
             DTU_LOGD("phase inverters have pending limit changes, "
                      "deferring Total regulation to next cycle");
         } else {
