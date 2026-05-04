@@ -174,11 +174,7 @@
                             </label>
                             <div class="col-sm-8">
                                 <select class="form-select" v-model="inv.phase_assignment">
-                                    <option
-                                        v-for="phase in phaseAssignmentList"
-                                        :key="phase.key"
-                                        :value="phase.key"
-                                    >
+                                    <option v-for="phase in phaseAssignmentList" :key="phase.key" :value="phase.key">
                                         {{ $t(`powerlimiteradmin.PhaseAssignment` + phase.value) }}
                                     </option>
                                 </select>
@@ -191,11 +187,7 @@
                             </label>
                             <div class="col-sm-8">
                                 <select class="form-select" v-model="inv.connected_phase">
-                                    <option
-                                        v-for="phase in connectedPhaseList"
-                                        :key="phase.key"
-                                        :value="phase.key"
-                                    >
+                                    <option v-for="phase in connectedPhaseList" :key="phase.key" :value="phase.key">
                                         {{ $t(`powerlimiteradmin.ConnectedPhase` + phase.value) }}
                                     </option>
                                 </select>
