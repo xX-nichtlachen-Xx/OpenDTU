@@ -530,18 +530,16 @@ void PowerLimiterClass::loop()
         DTU_LOGD("residual pool: %d W (L1:%d L2:%d L3:%d)",
                  residualPool, residualL1, residualL2, residualL3);
 
-        // Check if any phase-assigned inverter has a pending limit change
-        // scheduled by the regulatePhase(L1/L2/L3) calls above. If so, skip
-        // regulating Total inverters this cycle — wait for the phase changes
-        // to be applied and reflected in the meter before adjusting Total,
-        // to avoid overshoot oscillation.
-        bool phaseInverterPending = false;
+        // Compute the total pending delta of all phase-assigned inverters:
+        // how many watts are currently in-flight (commanded but not yet reflected
+        // in the meter) across all phase inverters.
+        uint16_t pendingPhaseDelta = 0;
         for (auto const& upInv : _inverters) {
             if (static_cast<uint8_t>(upInv->getPhaseAssignment()) == 0u) { continue; }
-            if (upInv->hasTargetLimitPending()) {
-                phaseInverterPending = true;
-                break;
-            }
+            if (!upInv->hasTargetLimitPending()) { continue; }
+            int16_t delta = static_cast<int16_t>(upInv->getExpectedOutputAcWatts())
+                          - static_cast<int16_t>(upInv->getCurrentOutputAcWatts());
+            pendingPhaseDelta += static_cast<uint16_t>(std::abs(delta));
         }
 
         uint16_t totalAssignedCurrentOutput = 0;
@@ -558,6 +556,10 @@ void PowerLimiterClass::loop()
                                   ? totalRegulationTarget - overshootByAssignment[0] : 0;
         }
         totalRegulationTarget = std::min(totalRegulationTarget, globalAllowanceAc);
+
+        uint16_t globalNeeded = (totalRegulationTarget > totalAssignedCurrentOutput)
+                              ? totalRegulationTarget - totalAssignedCurrentOutput
+                              : totalAssignedCurrentOutput - totalRegulationTarget;
 
         bool totalNeedsDecrease = totalAssignedCurrentOutput > totalRegulationTarget;
 
@@ -577,16 +579,19 @@ void PowerLimiterClass::loop()
             if (hasTotalBatteryInverter) { totalNeedsDecrease = true; }
         }
 
-        if (phaseInverterPending
+        // Only defer Total regulation when the pending phase change is larger
+        // than what the global inverter needs. If the global's needed change
+        // exceeds the pending phase delta, the global takes priority — its
+        // demand (e.g. uncovered L1+L2) outweighs the oscillation risk.
+        // calcTargetOutput(0) pre-corrects for pending phase deltas so the
+        // global target is accurate even while phase inverters are ramping.
+        if (pendingPhaseDelta >= globalNeeded
             && !totalNeedsDecrease
             && !isFullSolarPassthroughActive()) {
-            DTU_LOGD("phase inverters have pending limit changes, "
-                     "deferring Total regulation to next cycle");
+            DTU_LOGD("phase pending delta %u W >= global needed %u W, "
+                     "deferring Total regulation to next cycle",
+                     pendingPhaseDelta, globalNeeded);
         } else {
-            // Regulate Total-assigned inverters only when phase inverters are
-            // settled, so the meter readings reflect their actual output.
-            // But if Total already needs to ramp down, do that immediately so
-            // export limiting is not blocked by pending phase updates.
             int16_t unused;
             totalCovered += regulatePhase(0, unused, dcBusBudgetAc, globalAllowanceAc, overshootByAssignment[0]);
         }
@@ -838,6 +843,25 @@ uint16_t PowerLimiterClass::calcTargetOutput(uint8_t phase) const
             roundedMeterValue += upInv->getCurrentOutputAcWatts();
             DTU_LOGD("phase %u: compensating Total inverter %s output %d W on this phase",
                     phase, upInv->getSerialStr(), upInv->getCurrentOutputAcWatts());
+        }
+    }
+
+    // For the Total pass (phase == 0): phase-assigned inverters affect the total
+    // meter, but their pending limit changes have not yet been reflected in the
+    // meter reading. Pre-correct by subtracting each phase inverter's pending
+    // delta (expected - current) so the global inverter target is not inflated
+    // by stale meter values while phase inverters are ramping.
+    if (phase == 0) {
+        for (auto const& upInv : _inverters) {
+            if (static_cast<uint8_t>(upInv->getPhaseAssignment()) == 0) { continue; }
+            if (!upInv->isEligible()) { continue; }
+            int16_t delta = static_cast<int16_t>(upInv->getExpectedOutputAcWatts())
+                          - static_cast<int16_t>(upInv->getCurrentOutputAcWatts());
+            roundedMeterValue -= delta;
+            DTU_LOGD("phase 0: pre-correcting for phase-assigned inverter %s delta %d W "
+                    "(expected %d W, current %d W)",
+                    upInv->getSerialStr(), delta,
+                    upInv->getExpectedOutputAcWatts(), upInv->getCurrentOutputAcWatts());
         }
     }
 
