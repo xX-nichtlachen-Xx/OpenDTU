@@ -32,11 +32,13 @@ private:
         FullSolarPassThroughStartVoltage,
         FullSolarPassThroughStopVoltage,
         UpperPowerLimit,
-        TargetPowerConsumption
+        TargetPowerConsumption,
+        TargetPowerConsumptionDay,
+        TargetPowerConsumptionNight
     };
 
     static constexpr frozen::string _cmdtopic = "powerlimiter/cmd/";
-    static constexpr frozen::map<frozen::string, MqttPowerLimiterCommand, 10> _subscriptions = {
+    static constexpr frozen::map<frozen::string, MqttPowerLimiterCommand, 12> _subscriptions = {
         { "threshold/soc/start",                            MqttPowerLimiterCommand::BatterySoCStartThreshold },
         { "threshold/soc/stop",                             MqttPowerLimiterCommand::BatterySoCStopThreshold },
         { "threshold/soc/full_solar_passthrough",           MqttPowerLimiterCommand::FullSolarPassthroughSoC },
@@ -47,6 +49,8 @@ private:
         { "mode",                                           MqttPowerLimiterCommand::Mode },
         { "upper_power_limit",                              MqttPowerLimiterCommand::UpperPowerLimit },
         { "target_power_consumption",                       MqttPowerLimiterCommand::TargetPowerConsumption },
+        { "target_power_consumption_day",                   MqttPowerLimiterCommand::TargetPowerConsumptionDay },
+        { "target_power_consumption_night",                 MqttPowerLimiterCommand::TargetPowerConsumptionNight },
     };
 
     void onMqttCmd(MqttPowerLimiterCommand command, const espMqttClientTypes::MessageProperties& properties, const char* topic, const uint8_t* payload, size_t len);

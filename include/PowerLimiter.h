@@ -42,6 +42,7 @@ public:
     uint8_t getPowerLimiterState() const;
     int32_t getInverterOutput() const { return _lastExpectedInverterOutput; }
     bool isFullSolarPassthroughActive() const { return _fullSolarPassThroughActive; }
+    int16_t getTargetPowerConsumption() const;
 
     enum class Mode : unsigned {
         Normal = 0,
