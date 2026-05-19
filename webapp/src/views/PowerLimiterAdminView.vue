@@ -61,9 +61,19 @@
                 <template v-if="isEnabled">
                     <InputElement
                         v-if="hasPowerMeter"
-                        :label="$t('powerlimiteradmin.TargetPowerConsumption')"
-                        :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionHint')"
-                        v-model="powerLimiterConfigList.target_power_consumption"
+                        :label="$t('powerlimiteradmin.TargetPowerConsumptionDay')"
+                        :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionDayHint')"
+                        v-model="powerLimiterConfigList.target_power_consumption_day"
+                        postfix="W"
+                        type="number"
+                        wide
+                    />
+
+                    <InputElement
+                        v-if="hasPowerMeter"
+                        :label="$t('powerlimiteradmin.TargetPowerConsumptionNight')"
+                        :tooltip="$t('powerlimiteradmin.TargetPowerConsumptionNightHint')"
+                        v-model="powerLimiterConfigList.target_power_consumption_night"
                         postfix="W"
                         type="number"
                         wide

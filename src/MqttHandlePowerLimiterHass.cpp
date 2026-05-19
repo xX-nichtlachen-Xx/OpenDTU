@@ -65,6 +65,8 @@ void MqttHandlePowerLimiterHassClass::publishConfig()
     publishSelect("DPL Mode", "mdi:gauge", "config", "mode", "mode");
     publishNumber("Total Upper Power Limit", "mdi:speedometer", "config", "upper_power_limit", "upper_power_limit", "W", 0, 32767, 1);
     publishNumber("Target Power Consumption", "mdi:target", "config", "target_power_consumption", "target_power_consumption", "W", -32768, 32767, 1);
+    publishNumber("Target Power Consumption Day", "mdi:weather-sunny", "config", "target_power_consumption_day", "target_power_consumption_day", "W", -32768, 32767, 1);
+    publishNumber("Target Power Consumption Night", "mdi:weather-night", "config", "target_power_consumption_night", "target_power_consumption_night", "W", -32768, 32767, 1);
 
     if (!PowerLimiter.usesBatteryPoweredInverter()) {
         return;
