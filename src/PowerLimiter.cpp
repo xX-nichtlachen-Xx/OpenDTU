@@ -522,6 +522,16 @@ void PowerLimiterClass::unconditionalFullSolarPassthrough()
     return announceStatus(Status::UnconditionalSolarPassthrough);
 }
 
+int16_t PowerLimiterClass::getTargetPowerConsumption() const
+{
+    auto const& config = Configuration.get();
+    if (SunPosition.isDayPeriod()) {
+        return config.PowerLimiter.TargetPowerConsumptionDay;
+    }
+
+    return config.PowerLimiter.TargetPowerConsumptionNight;
+}
+
 uint8_t PowerLimiterClass::getInverterUpdateTimeouts() const
 {
     uint8_t res = 0;
@@ -555,7 +565,7 @@ uint8_t PowerLimiterClass::getPowerLimiterState() const
 uint16_t PowerLimiterClass::calcTargetOutput() const
 {
     auto const& config = Configuration.get();
-    auto targetConsumption = config.PowerLimiter.TargetPowerConsumption;
+    auto targetConsumption = getTargetPowerConsumption();
     auto baseLoad = config.PowerLimiter.BaseLoadLimit;
 
     auto meterValid = PowerMeter.isDataValid();

@@ -91,7 +91,9 @@ void MqttHandlePowerLimiterClass::loop()
 
     MqttSettings.publish("powerlimiter/status/upper_power_limit", String(config.PowerLimiter.TotalUpperPowerLimit));
 
-    MqttSettings.publish("powerlimiter/status/target_power_consumption", String(config.PowerLimiter.TargetPowerConsumption));
+    MqttSettings.publish("powerlimiter/status/target_power_consumption", String(PowerLimiter.getTargetPowerConsumption()));
+    MqttSettings.publish("powerlimiter/status/target_power_consumption_day", String(config.PowerLimiter.TargetPowerConsumptionDay));
+    MqttSettings.publish("powerlimiter/status/target_power_consumption_night", String(config.PowerLimiter.TargetPowerConsumptionNight));
 
     MqttSettings.publish("powerlimiter/status/inverter_update_timeouts", String(PowerLimiter.getInverterUpdateTimeouts()));
 
@@ -200,9 +202,21 @@ void MqttHandlePowerLimiterClass::onMqttCmd(MqttPowerLimiterCommand command, con
             config.PowerLimiter.TotalUpperPowerLimit = intValue;
             break;
         case MqttPowerLimiterCommand::TargetPowerConsumption:
-            if (config.PowerLimiter.TargetPowerConsumption == intValue) { return; }
-            DTU_LOGI("Setting target power consumption to: %d W", intValue);
-            config.PowerLimiter.TargetPowerConsumption = intValue;
+            if (config.PowerLimiter.TargetPowerConsumptionDay == intValue
+                    && config.PowerLimiter.TargetPowerConsumptionNight == intValue) { return; }
+            DTU_LOGI("Setting day and night target power consumption to: %d W", intValue);
+            config.PowerLimiter.TargetPowerConsumptionDay = intValue;
+            config.PowerLimiter.TargetPowerConsumptionNight = intValue;
+            break;
+        case MqttPowerLimiterCommand::TargetPowerConsumptionDay:
+            if (config.PowerLimiter.TargetPowerConsumptionDay == intValue) { return; }
+            DTU_LOGI("Setting day target power consumption to: %d W", intValue);
+            config.PowerLimiter.TargetPowerConsumptionDay = intValue;
+            break;
+        case MqttPowerLimiterCommand::TargetPowerConsumptionNight:
+            if (config.PowerLimiter.TargetPowerConsumptionNight == intValue) { return; }
+            DTU_LOGI("Setting night target power consumption to: %d W", intValue);
+            config.PowerLimiter.TargetPowerConsumptionNight = intValue;
             break;
     }
 

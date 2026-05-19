@@ -219,7 +219,8 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
     target["solar_passthrough_enabled"] = source.SolarPassThroughEnabled;
     target["conduction_losses"] = source.ConductionLosses;
     target["battery_always_use_at_night"] = source.BatteryAlwaysUseAtNight;
-    target["target_power_consumption"] = source.TargetPowerConsumption;
+    target["target_power_consumption_day"] = source.TargetPowerConsumptionDay;
+    target["target_power_consumption_night"] = source.TargetPowerConsumptionNight;
     target["target_power_consumption_hysteresis"] = source.TargetPowerConsumptionHysteresis;
     target["base_load_limit"] = source.BaseLoadLimit;
     target["ignore_soc"] = source.IgnoreSoc;
@@ -665,7 +666,9 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
     target.SolarPassThroughEnabled = source["solar_passthrough_enabled"] | POWERLIMITER_SOLAR_PASSTHROUGH_ENABLED;
     target.ConductionLosses = source["conduction_losses"] | POWERLIMITER_CONDUCTION_LOSSES;
     target.BatteryAlwaysUseAtNight = source["battery_always_use_at_night"] | POWERLIMITER_BATTERY_ALWAYS_USE_AT_NIGHT;
-    target.TargetPowerConsumption = source["target_power_consumption"] | POWERLIMITER_TARGET_POWER_CONSUMPTION;
+    auto const legacyTargetPowerConsumption = source["target_power_consumption"] | POWERLIMITER_TARGET_POWER_CONSUMPTION;
+    target.TargetPowerConsumptionDay = source["target_power_consumption_day"] | legacyTargetPowerConsumption;
+    target.TargetPowerConsumptionNight = source["target_power_consumption_night"] | legacyTargetPowerConsumption;
     target.TargetPowerConsumptionHysteresis = source["target_power_consumption_hysteresis"] | POWERLIMITER_TARGET_POWER_CONSUMPTION_HYSTERESIS;
     target.BaseLoadLimit = source["base_load_limit"] | POWERLIMITER_BASE_LOAD_LIMIT;
     target.IgnoreSoc = source["ignore_soc"] | POWERLIMITER_IGNORE_SOC;
