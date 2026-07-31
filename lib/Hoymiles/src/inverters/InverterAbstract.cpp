@@ -63,6 +63,16 @@ const char* InverterAbstract::name() const
     return _name;
 }
 
+void InverterAbstract::setLegacyFirmwareMode(const bool enabled)
+{
+    _legacyFirmwareMode = enabled;
+}
+
+bool InverterAbstract::getLegacyFirmwareMode() const
+{
+    return _legacyFirmwareMode;
+}
+
 bool InverterAbstract::isProducing()
 {
     float totalAc = 0;
@@ -148,6 +158,26 @@ int8_t InverterAbstract::getLastRssi() const
 bool InverterAbstract::sendChangeChannelRequest()
 {
     return false;
+}
+
+bool InverterAbstract::getFirmwareUpdateRunning()
+{
+    return false;
+}
+
+void InverterAbstract::abortFirmwareUpdateRequest()
+{
+}
+
+void InverterAbstract::resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt)
+{
+    (void)rowData;
+    (void)rowLen;
+    (void)attempt;
+}
+
+void InverterAbstract::onFirmwareRowCompleted()
+{
 }
 
 HoymilesRadio* InverterAbstract::getRadio()

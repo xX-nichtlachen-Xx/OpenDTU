@@ -29,10 +29,10 @@ public:
     explicit CommandAbstract(InverterAbstract* inv, const uint64_t router_address = 0);
     virtual ~CommandAbstract() { };
 
-    const uint8_t* getDataPayload();
+    virtual const uint8_t* getDataPayload();
     String dumpDataPayload();
 
-    uint8_t getDataSize() const;
+    virtual uint8_t getDataSize() const;
 
     uint64_t getTargetAddress() const;
 
@@ -61,9 +61,15 @@ public:
 
     // Returns whether multiple instances of this command are allowed in the command queue.
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
+
+    // Lets the command queue find/cancel queued firmware-update packets without RTTI.
+    virtual bool isFirmwareDataCommand() const { return false; }
+
     virtual bool areSameParameter(CommandAbstract* other);
 
 protected:
+    bool isLegacyFirmwareMode() const;
+
     uint8_t _payload[RF_LEN];
     uint8_t _payload_size;
     uint32_t _timeout;

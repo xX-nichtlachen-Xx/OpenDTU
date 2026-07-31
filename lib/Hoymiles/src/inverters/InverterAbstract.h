@@ -13,6 +13,7 @@
 #include <Arduino.h>
 #include <cstdint>
 #include <list>
+#include <vector>
 
 #define MAX_NAME_LENGTH 32
 
@@ -36,6 +37,8 @@ public:
     const String& serialString() const;
     void setName(const char* name);
     const char* name() const;
+    void setLegacyFirmwareMode(const bool enabled);
+    bool getLegacyFirmwareMode() const;
     virtual String typeName() const = 0;
     virtual const byteAssign_t* getByteAssignment() const = 0;
     virtual uint8_t getByteAssignmentSize() const = 0;
@@ -102,6 +105,13 @@ public:
     virtual bool resendPowerControlRequest() = 0;
     virtual bool sendChangeChannelRequest();
     virtual bool sendGridOnProFileParaRequest() = 0;
+    virtual bool sendFirmwareUpdateRequest(const String& littleFsPath,
+                                           const uint8_t* rawAscii,
+                                           const size_t rawAsciiLen) = 0;
+    virtual bool getFirmwareUpdateRunning();
+    virtual void abortFirmwareUpdateRequest();
+    virtual void resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt);
+    virtual void onFirmwareRowCompleted();
 
     // This feature will limit the AC output instead of limiting the DC inputs.
     virtual bool supportsPowerDistributionLogic() = 0;
@@ -135,6 +145,7 @@ private:
     bool _zeroValuesIfUnreachable = false;
     bool _zeroYieldDayOnMidnight = false;
     bool _clearEventlogOnMidnight = false;
+    bool _legacyFirmwareMode = false;
 
     int8_t _lastRssi = -127;
 

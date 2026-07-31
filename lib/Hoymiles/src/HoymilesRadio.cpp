@@ -159,6 +159,16 @@ uint8_t HoymilesRadio::countSimilarCommands(std::shared_ptr<CommandAbstract> cmd
     return _commandQueue.countSimilarCommands(cmd);
 }
 
+bool HoymilesRadio::hasFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    return _commandQueue.hasFirmwareUpdateCommands(inv);
+}
+
+void HoymilesRadio::removeFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    _commandQueue.removeFirmwareUpdateCommands(inv);
+}
+
 bool HoymilesRadio::isIdle() const
 {
     return !_busyFlag;

@@ -52,6 +52,15 @@
                     <StatusBadge :status="devInfoList.pdl_supported" true_text="devinfo.Yes" false_text="devinfo.No" />
                 </td>
             </tr>
+            <tr v-if="devInfoList.firmware_update_supported">
+                <td>{{ $t('devinfo.FirmwareUpdateStatus') }}</td>
+                <td>
+                    <span v-if="devInfoList.firmware_update_running" class="badge bg-warning text-dark">{{
+                        $t('devinfo.Running')
+                    }}</span>
+                    <span v-else class="badge bg-secondary">{{ $t('devinfo.Idle') }}</span>
+                </td>
+            </tr>
         </tbody>
     </table>
 </template>

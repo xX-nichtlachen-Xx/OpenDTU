@@ -3,6 +3,9 @@
 
 #include <ESPAsyncWebServer.h>
 #include <TaskSchedulerDeclarations.h>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
 class WebApiFileClass {
 public:
@@ -16,3 +19,11 @@ private:
     void onFileUploadFinish(AsyncWebServerRequest* request);
     void onFileUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
 };
+
+bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len);
+bool getFirmwareUploadFromPsram(std::vector<uint8_t>& buffer);
+// Direct read-only view of the persistent PSRAM upload buffer -- no copy.
+// The returned pointer is valid until clearFirmwareUploadFromPsram() is
+// called. Returns nullptr if no upload is stored.
+const uint8_t* peekFirmwareUploadInPsram(size_t& outLen);
+void clearFirmwareUploadFromPsram();

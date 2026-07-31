@@ -10,4 +10,6 @@ public:
 
 private:
     void onDevInfoStatus(AsyncWebServerRequest* request);
+    void onFirmwareUpdateStart(AsyncWebServerRequest* request);
+    void onFirmwareUpdateAbort(AsyncWebServerRequest* request);
 };

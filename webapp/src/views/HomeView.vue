@@ -350,6 +350,29 @@
 
     <ModalDialog modalId="devInfoView" :title="$t('home.InverterInfo')" :loading="devInfoLoading">
         <DevInfo :devInfoList="devInfoList" />
+        <template #footer>
+            <button
+                v-if="devInfoList.firmware_update_running"
+                type="button"
+                class="btn btn-danger me-2"
+                @click="onAbortFirmwareUpdate(devInfoList.serial)"
+            >
+                {{ $t('home.AbortUpdate') }}
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="
+                    devInfoLoading ||
+                    !devInfoList.serial ||
+                    !devInfoList.firmware_update_supported ||
+                    devInfoList.firmware_update_running
+                "
+                @click="onStartFirmwareUpdate(devInfoList.serial)"
+            >
+                {{ devInfoList.firmware_update_running ? $t('home.UpdateRunning') : $t('home.StartUpdate') }}
+            </button>
+        </template>
     </ModalDialog>
 
     <ModalDialog modalId="gridProfileView" :title="$t('home.GridProfile')" :loading="gridProfileLoading">
@@ -572,6 +595,7 @@ export default defineComponent({
             devInfoView: {} as bootstrap.Modal,
             devInfoList: {} as DevInfoStatus,
             devInfoLoading: true,
+            devInfoPollHandle: 0,
             gridProfileView: {} as bootstrap.Modal,
             gridProfileList: {} as GridProfileStatus,
             gridProfileRawList: {} as GridProfileRawdata,
@@ -620,9 +644,13 @@ export default defineComponent({
         this.gridProfileView = new bootstrap.Modal('#gridProfileView');
         this.limitSettingView = new bootstrap.Modal('#limitSettingView');
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
+        document.getElementById('devInfoView')?.addEventListener('hide.bs.modal', () => {
+            this.stopDevInfoPolling();
+        });
     },
     unmounted() {
         this.socket?.close();
+        this.stopDevInfoPolling();
     },
     updated() {
         console.log('Updated');
@@ -773,9 +801,57 @@ export default defineComponent({
                     this.devInfoList = data;
                     this.devInfoList.serial = serial;
                     this.devInfoLoading = false;
+                    if (data.firmware_update_running) {
+                        this.startDevInfoPolling(serial);
+                    }
                 });
 
             this.devInfoView.show();
+        },
+        onStartFirmwareUpdate(serial: string) {
+            fetch('/api/devinfo/update?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type == 'success') {
+                        this.startDevInfoPolling(serial);
+                    }
+                })
+                .catch(() => {
+                    console.warn('Failed to start firmware update');
+                });
+        },
+        onAbortFirmwareUpdate(serial: string) {
+            fetch('/api/devinfo/update/abort?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .catch(() => {
+                    console.warn('Failed to abort firmware update');
+                });
+        },
+        startDevInfoPolling(serial: string) {
+            this.stopDevInfoPolling();
+            this.devInfoPollHandle = window.setInterval(() => {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((data) => {
+                        this.devInfoList = data;
+                        this.devInfoList.serial = serial;
+                        if (!data.firmware_update_running) {
+                            this.stopDevInfoPolling();
+                        }
+                    });
+            }, 2000);
+        },
+        stopDevInfoPolling() {
+            if (this.devInfoPollHandle) {
+                clearInterval(this.devInfoPollHandle);
+                this.devInfoPollHandle = 0;
+            }
         },
         onShowGridProfile(serial: string) {
             this.gridProfileLoading = true;
