@@ -14,6 +14,12 @@ Start Update.
 
 [Manual](https://github.com/tbnobody/OpenDTU/discussions/3168/).
 
+Contained Fimware files (./Firmware):
+HM_1T_1_0_17.hex
+HM_1T_1_1_0.hex
+HM_2T_1_1_2.hex
+HM_4T_1_1_3.hex
+
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
 [![Yarn Linting](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml)
