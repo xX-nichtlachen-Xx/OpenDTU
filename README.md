@@ -11,6 +11,7 @@ It is recommended to disable all NRF24/Inverter traffic during the update.
 
 Upload Firmware File.
 Start Update.
+
 [Manual](https://github.com/tbnobody/OpenDTU/discussions/3168/).
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
