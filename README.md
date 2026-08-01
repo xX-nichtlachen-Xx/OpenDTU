@@ -4,7 +4,7 @@
 You can change and modify the used Grid Profile now.
 You can change the used Power Factor now.
 You can change the Reactive Power now.
-Youn change the overall produced energy value per string.
+You can adjust the total generated energy values.
 
 
 Handle with care and on your own risk!
