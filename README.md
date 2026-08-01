@@ -2,8 +2,8 @@
 
 
 You can change and modify the used Grid Profile now.
-You can change the used Power Factor now.
-You can change the Reactive Power now.
+You can adjust the used Power Factor now.
+You can adjust the Reactive Power now.
 You can adjust the total generated energy values.
 
 
