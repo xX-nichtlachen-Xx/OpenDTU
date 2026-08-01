@@ -1,5 +1,17 @@
 # OpenDTU
 
+
+You can change and modify the used Grid Profile now.
+You can change the used Power Factor now.
+You can change the Reactive Power now.
+
+Handle with care and on your own risk!
+Testetd with HM Inverters only!
+
+[GridProfile Selector/Editor and new Power Commands](https://github.com/tbnobody/OpenDTU/discussions/3168)
+
+
+
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
 [![Yarn Linting](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml)
