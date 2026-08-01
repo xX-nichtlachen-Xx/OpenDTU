@@ -179,6 +179,19 @@
                                     </button>
                                 </div>
 
+                                <div class="btn-group me-2" role="group">
+                                    <button
+                                        :disabled="!isLogged"
+                                        type="button"
+                                        class="btn btn-sm btn-warning"
+                                        @click="onShowYieldTotalSettings(inverter)"
+                                        v-tooltip
+                                        :title="$t('home.ShowSetYieldTotal')"
+                                    >
+                                        <BIconBattery style="font-size: 24px" />
+                                    </button>
+                                </div>
+
                                 <div class="btn-group" role="group">
                                     <button
                                         v-if="inverter.events >= 0"
@@ -715,6 +728,60 @@
             </button>
         </div>
     </ModalDialog>
+
+    <ModalDialog
+        modalId="yieldTotalSettingView"
+        :title="$t('home.YieldTotalSettings')"
+        :loading="yieldTotalSettingLoading"
+    >
+        <BootstrapAlert v-model="showAlertYieldTotal" :variant="alertTypeYieldTotal">
+            {{ alertMessageYieldTotal }}
+        </BootstrapAlert>
+
+        <div class="row mb-3 align-items-center">
+            <label class="col-sm-4 col-form-label">{{ $t('home.LastYieldTotalSetStatus') }}</label>
+            <div class="col-sm-8">
+                <span
+                    class="badge"
+                    :class="{
+                        'text-bg-danger': currentYieldTotalStatus == 'Failure',
+                        'text-bg-warning': currentYieldTotalStatus == 'Pending',
+                        'text-bg-success': currentYieldTotalStatus == 'Ok',
+                        'text-bg-secondary': currentYieldTotalStatus == 'Unknown',
+                    }"
+                >
+                    {{ $t('home.' + currentYieldTotalStatus) }}
+                </span>
+            </div>
+        </div>
+
+        <div class="row mb-3" v-for="(_, idx) in targetYieldTotalKwh" :key="idx">
+            <label :for="'inputYieldString' + idx" class="col-sm-4 col-form-label">
+                {{ $t('home.YieldTotalString', { n: idx + 1 }) }}
+            </label>
+            <div class="col-sm-8">
+                <div class="input-group">
+                    <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="form-control"
+                        :id="'inputYieldString' + idx"
+                        v-model.number="targetYieldTotalKwh[idx]"
+                    />
+                    <span class="input-group-text">kWh</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-secondary" role="alert" v-html="$t('home.YieldTotalHint')"></div>
+
+        <template #footer>
+            <button type="button" class="btn btn-warning" @click="onSetYieldTotalSettings()">
+                {{ $t('home.SetYieldTotal') }}
+            </button>
+        </template>
+    </ModalDialog>
 </template>
 
 <script lang="ts">
@@ -738,10 +805,12 @@ import type { LimitStatus } from '@/types/LimitStatus';
 import type { Inverter, LiveData } from '@/types/LiveDataStatus';
 import type { PowerFactorConfig, PowerFactorStatus } from '@/types/PowerFactorConfig';
 import type { ReactivePowerConfig, ReactivePowerStatus } from '@/types/ReactivePowerConfig';
+import type { YieldTotalStatus } from '@/types/YieldTotalConfig';
 import { authHeader, authUrl, handleResponse, isLoggedIn } from '@/utils/authentication';
 import * as bootstrap from 'bootstrap';
 import {
     BIconArrowCounterclockwise,
+    BIconBattery,
     BIconBroadcast,
     BIconCpu,
     BIconInfoCircle,
@@ -770,6 +839,7 @@ export default defineComponent({
         InverterTotalInfo,
         ModalDialog,
         BIconArrowCounterclockwise,
+        BIconBattery,
         BIconBroadcast,
         BIconCpu,
         BIconInfoCircle,
@@ -853,6 +923,15 @@ export default defineComponent({
             showAlertPower: false,
             successCommandPower: '',
 
+            yieldTotalSettingView: {} as bootstrap.Modal,
+            yieldTotalSettingLoading: true,
+            yieldTotalSerial: '',
+            currentYieldTotalStatus: 'Unknown' as string,
+            targetYieldTotalKwh: [] as number[],
+            alertMessageYieldTotal: '',
+            alertTypeYieldTotal: 'info',
+            showAlertYieldTotal: false,
+
             isWebsocketConnected: false,
         };
     },
@@ -874,6 +953,7 @@ export default defineComponent({
         this.reactiveSettingView = new bootstrap.Modal('#reactivePowerSettingView');
         this.powerFactorSettingView = new bootstrap.Modal('#powerFactorSettingView');
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
+        this.yieldTotalSettingView = new bootstrap.Modal('#yieldTotalSettingView');
     },
     unmounted() {
         this.socket?.close();
@@ -1285,6 +1365,60 @@ export default defineComponent({
                         this.alertMessagePower = this.$t('apiresponse.' + response.code, response.param);
                         this.alertTypePower = response.type;
                         this.showAlertPower = true;
+                    }
+                });
+        },
+        onShowYieldTotalSettings(inverter: Inverter) {
+            this.showAlertYieldTotal = false;
+            this.yieldTotalSerial = inverter.serial;
+            this.currentYieldTotalStatus = 'Unknown';
+
+            const channelCount = inverter.DC ? Object.keys(inverter.DC).length : 1;
+            // Real inverters only ship in 1/2/4-string variants; a 3-string reading is treated as 4.
+            const slots = channelCount <= 1 ? 1 : channelCount <= 2 ? 2 : 4;
+            this.targetYieldTotalKwh = new Array(slots).fill(0);
+
+            for (let i = 0; i < slots; i++) {
+                const wh = inverter.DC?.[i]?.YieldTotal?.v;
+                if (typeof wh === 'number') {
+                    // YieldTotal in live-data is reported in kWh with fractional digits;
+                    // pre-fill the input rounded to the nearest whole kWh.
+                    this.targetYieldTotalKwh[i] = Math.round(wh);
+                }
+            }
+
+            this.yieldTotalSettingLoading = true;
+            fetch('/api/yieldtotal/status', { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data: Record<string, YieldTotalStatus>) => {
+                    this.currentYieldTotalStatus = data[inverter.serial]?.yield_total_set_status || 'Unknown';
+                    this.yieldTotalSettingLoading = false;
+                });
+
+            this.yieldTotalSettingView.show();
+        },
+        onSetYieldTotalSettings() {
+            const payload = {
+                serial: this.yieldTotalSerial,
+                values: this.targetYieldTotalKwh.map((v) => Math.max(0, Math.floor(v * 1000))),
+            };
+
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(payload));
+
+            fetch('/api/yieldtotal/config', {
+                method: 'POST',
+                headers: authHeader(),
+                body: formData,
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type == 'success') {
+                        this.yieldTotalSettingView.hide();
+                    } else {
+                        this.alertMessageYieldTotal = this.$t('apiresponse.' + response.code, response.param);
+                        this.alertTypeYieldTotal = response.type;
+                        this.showAlertYieldTotal = true;
                     }
                 });
         },

@@ -114,6 +114,14 @@ public:
     virtual void abortGridProfileWriteRequest();
     virtual void onGridProfileWriteCompleted(const bool success);
 
+    // YieldTotal (per-string total produced energy) write via 0x52 ParaSet.
+    // valuesWh[0..valueCount-1] are sent; remaining slots must be 0.
+    // Default no-op implementation for inverter families that don't support it.
+    virtual bool sendYieldTotalSetRequest(const uint32_t valuesWh[4], const uint8_t valueCount);
+    virtual bool getYieldTotalSetRunning() const;
+    virtual LastCommandSuccess getLastYieldTotalSetSuccess() const;
+    virtual void onYieldTotalSetCompleted(const bool success);
+
     // This feature will limit the AC output instead of limiting the DC inputs.
     virtual bool supportsPowerDistributionLogic() = 0;
 

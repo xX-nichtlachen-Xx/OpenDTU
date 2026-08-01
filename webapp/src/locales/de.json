@@ -129,7 +129,12 @@
         "15001": "@:apiresponse.2001",
         "15002": "Leistungsfaktor muss zwischen 0 und {max} liegen!",
         "15003": "@:apiresponse.5003",
-        "15004": "@:apiresponse.5004"
+        "15004": "@:apiresponse.5004",
+        "16001": "@:apiresponse.2001",
+        "16002": "@:apiresponse.5004",
+        "16003": "Werte müssen 1, 2 oder 4 Einträge enthalten!",
+        "16004": "Eine Ertragssumme-Schreibung läuft bereits, oder \"Befehle erlaubt\" ist für diesen Wechselrichter nicht gesetzt!",
+        "16005": "Ertragssumme-Schreibung eingereiht!"
     },
     "home": {
         "LiveData": "Live-Daten",
@@ -174,6 +179,12 @@
         "Unknown": "Unbekannt",
         "ShowGridProfile": "Zeige Grid Profil",
         "GridProfile": "Grid Profil",
+        "ShowSetYieldTotal": "Gesamtertrag anzeigen / setzen (EEPROM)",
+        "YieldTotalSettings": "Gesamtertrag-Einstellungen",
+        "LastYieldTotalSetStatus": "Letzter Schreibstatus",
+        "YieldTotalString": "String {n}",
+        "SetYieldTotal": "Gesamtertrag setzen",
+        "YieldTotalHint": "Schreibt den Gesamtertrag (kWh) in das EEPROM des Wechselrichters. Werte werden pro String gespeichert und bleiben nach einem Neustart erhalten. Mit Vorsicht verwenden!",
         "LoadingInverter": "Warte auf Daten... (kann bis zu 10 Sekunden dauern)",
         "RadioStats": "Funkstatistik",
         "TxRequest": "Gesendete Anfragen",

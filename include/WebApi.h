@@ -26,6 +26,7 @@
 #include "WebApi_webapp.h"
 #include "WebApi_ws_console.h"
 #include "WebApi_ws_live.h"
+#include "WebApi_yieldtotal.h"
 #include <AsyncJson.h>
 #include <ESPAsyncWebServer.h>
 #include <TaskSchedulerDeclarations.h>
@@ -74,6 +75,7 @@ private:
     WebApiWebappClass _webApiWebapp;
     WebApiWsConsoleClass _webApiWsConsole;
     WebApiWsLiveClass _webApiWsLive;
+    WebApiYieldTotalClass _webApiYieldTotal;
 };
 
 extern WebApiClass WebApi;

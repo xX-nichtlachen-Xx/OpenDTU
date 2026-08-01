@@ -25,6 +25,11 @@ public:
     void abortGridProfileWriteRequest() override;
     void onGridProfileWriteCompleted(const bool success) override;
 
+    bool sendYieldTotalSetRequest(const uint32_t valuesWh[4], const uint8_t valueCount) override;
+    bool getYieldTotalSetRunning() const override;
+    LastCommandSuccess getLastYieldTotalSetSuccess() const override;
+    void onYieldTotalSetCompleted(const bool success) override;
+
 protected:
     float _activePowerControlLimit = 0;
     PowerLimitControlType _activePowerControlType = PowerLimitControlType::AbsolutNonPersistent;
@@ -34,4 +39,7 @@ private:
     uint8_t _powerState = 1;
 
     bool _gridProfileWriteRunning = false;
+
+    bool _yieldTotalSetRunning = false;
+    LastCommandSuccess _lastYieldTotalSetSuccess = CMD_NOK;
 };

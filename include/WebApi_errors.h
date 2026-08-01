@@ -120,4 +120,11 @@ enum WebApiError {
     PowerFactorInvalidLimit,
     PowerFactorInvalidType,
     PowerFactorInvalidInverter,
+
+    YieldTotalBase = 16000,
+    YieldTotalSerialZero,
+    YieldTotalInvalidInverter,
+    YieldTotalInvalidValueCount,
+    YieldTotalWriteInProgress,
+    YieldTotalWriteQueued,
 };

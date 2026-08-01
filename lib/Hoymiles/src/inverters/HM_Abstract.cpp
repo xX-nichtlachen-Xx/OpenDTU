@@ -16,6 +16,7 @@
 #include "commands/ReactivePowerControlCommand.h"
 #include "commands/RealTimeRunDataCommand.h"
 #include "commands/SystemConfigParaCommand.h"
+#include "commands/YieldTotalSetCommand.h"
 #include <esp_log.h>
 
 #undef TAG
@@ -325,4 +326,51 @@ void HM_Abstract::abortGridProfileWriteRequest()
 void HM_Abstract::onGridProfileWriteCompleted(const bool /*success*/)
 {
     _gridProfileWriteRunning = false;
+}
+
+bool HM_Abstract::sendYieldTotalSetRequest(const uint32_t valuesWh[4], const uint8_t valueCount)
+{
+    if (!getEnableCommands()) {
+        return false;
+    }
+    if (valueCount == 0 || valueCount > 4) {
+        return false;
+    }
+    if (_yieldTotalSetRunning) {
+        return false;
+    }
+
+    uint32_t values[4] = { 0, 0, 0, 0 };
+    for (uint8_t i = 0; i < valueCount; i++) {
+        values[i] = valuesWh[i];
+    }
+
+    _lastYieldTotalSetSuccess = CMD_PENDING;
+    _yieldTotalSetRunning = true;
+
+    auto cmd1 = _radio->prepareCommand<YieldTotalSetCommand>(this);
+    cmd1->setValues(values, 1);
+    _radio->enqueCommand(cmd1);
+
+    auto cmd2 = _radio->prepareCommand<YieldTotalSetCommand>(this);
+    cmd2->setValues(values, 2);
+    _radio->enqueCommand(cmd2);
+
+    return true;
+}
+
+bool HM_Abstract::getYieldTotalSetRunning() const
+{
+    return _yieldTotalSetRunning;
+}
+
+LastCommandSuccess HM_Abstract::getLastYieldTotalSetSuccess() const
+{
+    return _lastYieldTotalSetSuccess;
+}
+
+void HM_Abstract::onYieldTotalSetCompleted(const bool success)
+{
+    _yieldTotalSetRunning = false;
+    _lastYieldTotalSetSuccess = success ? CMD_OK : CMD_NOK;
 }

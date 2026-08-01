@@ -178,6 +178,25 @@ void InverterAbstract::onGridProfileWriteCompleted(const bool /*success*/)
 {
 }
 
+bool InverterAbstract::sendYieldTotalSetRequest(const uint32_t /*valuesWh*/[4], const uint8_t /*valueCount*/)
+{
+    return false;
+}
+
+bool InverterAbstract::getYieldTotalSetRunning() const
+{
+    return false;
+}
+
+LastCommandSuccess InverterAbstract::getLastYieldTotalSetSuccess() const
+{
+    return CMD_NOK;
+}
+
+void InverterAbstract::onYieldTotalSetCompleted(const bool /*success*/)
+{
+}
+
 HoymilesRadio* InverterAbstract::getRadio()
 {
     return _radio;

@@ -129,7 +129,12 @@
         "15001": "@:apiresponse.2001",
         "15002": "Le facteur de puissance doit être compris entre 0 et {max} !",
         "15003": "@:apiresponse.5003",
-        "15004": "@:apiresponse.5004"
+        "15004": "@:apiresponse.5004",
+        "16001": "@:apiresponse.2001",
+        "16002": "@:apiresponse.5004",
+        "16003": "Les valeurs doivent contenir 1, 2 ou 4 entrées !",
+        "16004": "Une écriture du rendement total est déjà en cours ou \"Commandes activées\" n'est pas défini pour cet onduleur !",
+        "16005": "Écriture du rendement total mise en file d'attente !"
     },
     "home": {
         "LiveData": "Données en direct",
@@ -174,6 +179,12 @@
         "Unknown": "Inconnu",
         "ShowGridProfile": "Show Grid Profile",
         "GridProfile": "Grid Profile",
+        "ShowSetYieldTotal": "Afficher / définir le rendement total (EEPROM)",
+        "YieldTotalSettings": "Paramètres du rendement total",
+        "LastYieldTotalSetStatus": "Statut de la dernière écriture",
+        "YieldTotalString": "Chaîne {n}",
+        "SetYieldTotal": "Définir le rendement total",
+        "YieldTotalHint": "Écrit le rendement total (kWh) dans l'EEPROM de l'onduleur. Les valeurs sont stockées par chaîne et persistent après redémarrage. À utiliser avec précaution.",
         "LoadingInverter": "Waiting for data... (can take up to 10 seconds)",
         "RadioStats": "Radio Statistics",
         "TxRequest": "TX Request Count",
