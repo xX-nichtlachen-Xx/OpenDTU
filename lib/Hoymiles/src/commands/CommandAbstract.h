@@ -63,6 +63,9 @@ public:
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
     virtual bool areSameParameter(CommandAbstract* other);
 
+    // Type tag for queue-scoped filtering without RTTI (build uses -fno-rtti).
+    virtual bool isGridProfileWriteCommand() const { return false; }
+
 protected:
     uint8_t _payload[RF_LEN];
     uint8_t _payload_size;

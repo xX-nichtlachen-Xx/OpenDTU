@@ -150,6 +150,34 @@ bool InverterAbstract::sendChangeChannelRequest()
     return false;
 }
 
+bool InverterAbstract::sendReactivePowerControlRequest(float /*limit*/, const PowerLimitControlType /*type*/)
+{
+    return false;
+}
+
+bool InverterAbstract::sendPowerFactorControlRequest(float /*pf*/, const PowerLimitControlType /*type*/)
+{
+    return false;
+}
+
+bool InverterAbstract::sendGridProfileWriteRequest(const std::vector<uint8_t>& /*profile*/)
+{
+    return false;
+}
+
+bool InverterAbstract::getGridProfileWriteRunning() const
+{
+    return false;
+}
+
+void InverterAbstract::abortGridProfileWriteRequest()
+{
+}
+
+void InverterAbstract::onGridProfileWriteCompleted(const bool /*success*/)
+{
+}
+
 HoymilesRadio* InverterAbstract::getRadio()
 {
     return _radio;

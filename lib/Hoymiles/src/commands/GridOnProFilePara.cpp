@@ -42,13 +42,24 @@ bool GridOnProFilePara::handleResponse(const fragment_t fragment[], const uint8_
         return false;
     }
 
-    // Move all fragments into target buffer
+    // Move all fragments into target buffer. The last fragment carries a
+    // trailing 2-byte CRC16 that MultiDataCommand::handleResponse() above
+    // already validated the transmission with (crc16 over fragment[last][0..len-2)
+    // checked against fragment[last][len-2..len)); those 2 bytes are NOT part
+    // of the profile content and must be dropped here. Otherwise the stored
+    // profile is 2 bytes too long (ends with a stale reception checksum),
+    // and writing it back appends a second CRC16 on top of that stale one,
+    // producing a corrupt frame that the inverter rejects.
     uint8_t offs = 0;
     _inv->GridProfile()->beginAppendFragment();
     _inv->GridProfile()->clearBuffer();
     for (uint8_t i = 0; i < max_fragment_id; i++) {
-        _inv->GridProfile()->appendFragment(offs, fragment[i].fragment, fragment[i].len);
-        offs += (fragment[i].len);
+        uint8_t len = fragment[i].len;
+        if (i == max_fragment_id - 1) {
+            len = (len >= 2) ? (len - 2) : 0;
+        }
+        _inv->GridProfile()->appendFragment(offs, fragment[i].fragment, len);
+        offs += len;
     }
     _inv->GridProfile()->endAppendFragment();
     _inv->GridProfile()->setLastUpdate(millis());

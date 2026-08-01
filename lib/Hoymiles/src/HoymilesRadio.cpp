@@ -159,6 +159,16 @@ uint8_t HoymilesRadio::countSimilarCommands(std::shared_ptr<CommandAbstract> cmd
     return _commandQueue.countSimilarCommands(cmd);
 }
 
+uint8_t HoymilesRadio::removePendingGridProfileWriteCommands(InverterAbstract* inv)
+{
+    return _commandQueue.removePendingGridProfileWriteCommands(inv);
+}
+
+bool HoymilesRadio::hasGridProfileWriteCommands(InverterAbstract* inv)
+{
+    return _commandQueue.hasGridProfileWriteCommands(inv);
+}
+
 bool HoymilesRadio::isIdle() const
 {
     return !_busyFlag;

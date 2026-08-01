@@ -188,7 +188,18 @@ void HoymilesRadio_NRF::sendEsbPacket(CommandAbstract& cmd)
 
     ESP_LOGD(TAG, "TX %s Channel: %" PRIu8 " --> %s",
         cmd.getCommandName().c_str(), _radio->getChannel(), cmd.dumpDataPayload().c_str());
-    _radio->write(cmd.getDataPayload(), cmd.getDataSize());
+
+    // write() returning false means the hardware auto-retries (set above) were
+    // all exhausted without a link-layer ACK, i.e. the packet very likely never
+    // reached the inverter. This matters most for commands that get no app-level
+    // reply/resend (e.g. GridProfileWriteCommand middle frames), where such a
+    // silent loss would otherwise go completely unnoticed. Retry a few more times
+    // here before giving up.
+    bool wasAcked = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
+    for (uint8_t retry = 0; !wasAcked && retry < 2; retry++) {
+        ESP_LOGW(TAG, "TX %s: no hardware ACK, retrying (%" PRIu8 ")", cmd.getCommandName().c_str(), static_cast<uint8_t>(retry + 1));
+        wasAcked = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
+    }
 
     _radio->setRetries(0, 0);
     openReadingPipe();

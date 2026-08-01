@@ -121,6 +121,32 @@
                                         :disabled="!isLogged"
                                         type="button"
                                         class="btn btn-sm btn-danger"
+                                        @click="onShowReactiveSettings(inverter.serial)"
+                                        v-tooltip
+                                        :title="$t('home.ShowSetInverterReactivePower')"
+                                    >
+                                        <BIconLightningCharge style="font-size: 24px" />
+                                    </button>
+                                </div>
+
+                                <div class="btn-group me-2" role="group">
+                                    <button
+                                        :disabled="!isLogged"
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        @click="onShowPowerFactorSettings(inverter.serial)"
+                                        v-tooltip
+                                        :title="$t('home.ShowSetInverterPowerFactor')"
+                                    >
+                                        <BIconSliders style="font-size: 24px" />
+                                    </button>
+                                </div>
+
+                                <div class="btn-group me-2" role="group">
+                                    <button
+                                        :disabled="!isLogged"
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
                                         @click="onShowPowerSettings(inverter.serial)"
                                         v-tooltip
                                         :title="$t('home.TurnOnOff')"
@@ -353,7 +379,12 @@
     </ModalDialog>
 
     <ModalDialog modalId="gridProfileView" :title="$t('home.GridProfile')" :loading="gridProfileLoading">
-        <GridProfile :gridProfileList="gridProfileList" :gridProfileRawList="gridProfileRawList" />
+        <GridProfile
+            :gridProfileList="gridProfileList"
+            :gridProfileRawList="gridProfileRawList"
+            :inverterSerial="gridProfileSerial"
+            @refresh="onShowGridProfile(gridProfileSerial)"
+        />
     </ModalDialog>
 
     <ModalDialog modalId="limitSettingView" :title="$t('home.LimitSettings')" :loading="limitSettingLoading">
@@ -461,6 +492,195 @@
         </template>
     </ModalDialog>
 
+    <ModalDialog
+        modalId="reactivePowerSettingView"
+        :title="$t('home.ReactivePowerSettings')"
+        :loading="reactiveSettingLoading"
+    >
+        <BootstrapAlert v-model="showAlertReactive" :variant="alertTypeReactive">
+            {{ alertMessageReactive }}
+        </BootstrapAlert>
+
+        <div class="row mb-3">
+            <label for="inputCurrentReactive" class="col-sm-3 col-form-label">
+                {{ $t('home.CurrentReactivePower') }}
+            </label>
+            <div class="col-sm-4">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="inputCurrentReactive"
+                        aria-describedby="currentReactiveType"
+                        v-model="currentReactiveRelative"
+                        disabled
+                    />
+                    <span class="input-group-text" id="currentReactiveType">%</span>
+                </div>
+            </div>
+
+            <div class="col-sm-4" v-if="currentReactiveList.max_power > 0">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="inputCurrentReactiveAbsolute"
+                        aria-describedby="currentReactiveTypeAbsolute"
+                        v-model="currentReactiveAbsolute"
+                        disabled
+                    />
+                    <span class="input-group-text" id="currentReactiveTypeAbsolute">var</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3 align-items-center">
+            <label for="inputLastReactiveSet" class="col-sm-3 col-form-label">
+                {{ $t('home.LastReactivePowerSetStatus') }}
+            </label>
+            <div class="col-sm-9">
+                <span
+                    class="badge"
+                    :class="{
+                        'text-bg-danger': currentReactiveList.reactive_set_status == 'Failure',
+                        'text-bg-warning': currentReactiveList.reactive_set_status == 'Pending',
+                        'text-bg-success': currentReactiveList.reactive_set_status == 'Ok',
+                        'text-bg-secondary': currentReactiveList.reactive_set_status == 'Unknown',
+                    }"
+                >
+                    {{ $t('home.' + currentReactiveList.reactive_set_status) }}
+                </span>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label for="inputTargetReactive" class="col-sm-3 col-form-label">
+                {{ $t('home.SetReactivePower') }}
+            </label>
+            <div class="col-sm-9">
+                <div class="input-group">
+                    <input
+                        type="number"
+                        name="inputTargetReactive"
+                        class="form-control"
+                        id="inputTargetReactive"
+                        :min="targetReactiveMin"
+                        :max="targetReactiveMax"
+                        v-model="targetReactiveList.reactive_value"
+                    />
+                    <button
+                        class="btn btn-primary dropdown-toggle"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                    >
+                        {{ targetReactiveTypeText }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" @click="onSelectReactiveType(true)" href="#">
+                                {{ $t('home.Relative') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" @click="onSelectReactiveType(false)" href="#">
+                                {{ $t('home.Absolute') }}
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div
+                    class="alert alert-secondary mt-3"
+                    role="alert"
+                    v-html="$t('home.ReactivePowerHint')"
+                ></div>
+            </div>
+        </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-danger" @click="onSetReactiveSettings(true)">
+                {{ $t('home.SetPersistent') }}
+            </button>
+
+            <button type="button" class="btn btn-danger" @click="onSetReactiveSettings(false)">
+                {{ $t('home.SetNonPersistent') }}
+            </button>
+        </template>
+    </ModalDialog>
+
+    <ModalDialog
+        modalId="powerFactorSettingView"
+        :title="$t('home.PowerFactorSettings')"
+        :loading="powerFactorSettingLoading"
+    >
+        <BootstrapAlert v-model="showAlertPowerFactor" :variant="alertTypePowerFactor">
+            {{ alertMessagePowerFactor }}
+        </BootstrapAlert>
+
+        <div class="row mb-3">
+            <label for="inputCurrentPowerFactor" class="col-sm-3 col-form-label">
+                {{ $t('home.CurrentPowerFactor') }}
+            </label>
+            <div class="col-sm-9">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="inputCurrentPowerFactor"
+                    v-model="currentPowerFactorValue"
+                    disabled
+                />
+            </div>
+        </div>
+
+        <div class="row mb-3 align-items-center">
+            <label for="inputLastPowerFactorSet" class="col-sm-3 col-form-label">
+                {{ $t('home.LastPowerFactorSetStatus') }}
+            </label>
+            <div class="col-sm-9">
+                <span
+                    class="badge"
+                    :class="{
+                        'text-bg-danger': currentPowerFactorList.power_factor_set_status == 'Failure',
+                        'text-bg-warning': currentPowerFactorList.power_factor_set_status == 'Pending',
+                        'text-bg-success': currentPowerFactorList.power_factor_set_status == 'Ok',
+                        'text-bg-secondary': currentPowerFactorList.power_factor_set_status == 'Unknown',
+                    }"
+                >
+                    {{ $t('home.' + currentPowerFactorList.power_factor_set_status) }}
+                </span>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label for="inputTargetPowerFactor" class="col-sm-3 col-form-label">
+                {{ $t('home.SetPowerFactor') }}
+            </label>
+            <div class="col-sm-9">
+                <input
+                    type="number"
+                    name="inputTargetPowerFactor"
+                    class="form-control"
+                    id="inputTargetPowerFactor"
+                    min="0"
+                    max="1"
+                    step="0.001"
+                    v-model="targetPowerFactorList.power_factor"
+                />
+                <div class="alert alert-secondary mt-3" role="alert" v-html="$t('home.PowerFactorHint')"></div>
+            </div>
+        </div>
+
+        <template #footer>
+            <button type="button" class="btn btn-danger" @click="onSetPowerFactorSettings(true)">
+                {{ $t('home.SetPersistent') }}
+            </button>
+
+            <button type="button" class="btn btn-danger" @click="onSetPowerFactorSettings(false)">
+                {{ $t('home.SetNonPersistent') }}
+            </button>
+        </template>
+    </ModalDialog>
+
     <ModalDialog modalId="powerSettingView" :title="$t('home.PowerSettings')" :loading="powerSettingLoading">
         <BootstrapAlert v-model="showAlertPower" :variant="alertTypePower">
             {{ alertMessagePower }}
@@ -516,6 +736,8 @@ import type { GridProfileStatus } from '@/types/GridProfileStatus';
 import type { LimitConfig } from '@/types/LimitConfig';
 import type { LimitStatus } from '@/types/LimitStatus';
 import type { Inverter, LiveData } from '@/types/LiveDataStatus';
+import type { PowerFactorConfig, PowerFactorStatus } from '@/types/PowerFactorConfig';
+import type { ReactivePowerConfig, ReactivePowerStatus } from '@/types/ReactivePowerConfig';
 import { authHeader, authUrl, handleResponse, isLoggedIn } from '@/utils/authentication';
 import * as bootstrap from 'bootstrap';
 import {
@@ -524,8 +746,10 @@ import {
     BIconCpu,
     BIconInfoCircle,
     BIconJournalText,
+    BIconLightningCharge,
     BIconOutlet,
     BIconPower,
+    BIconSliders,
     BIconSpeedometer,
     BIconToggleOff,
     BIconToggleOn,
@@ -550,8 +774,10 @@ export default defineComponent({
         BIconCpu,
         BIconInfoCircle,
         BIconJournalText,
+        BIconLightningCharge,
         BIconOutlet,
         BIconPower,
+        BIconSliders,
         BIconSpeedometer,
         BIconToggleOff,
         BIconToggleOn,
@@ -576,6 +802,7 @@ export default defineComponent({
             gridProfileList: {} as GridProfileStatus,
             gridProfileRawList: {} as GridProfileRawdata,
             gridProfileLoading: true,
+            gridProfileSerial: '',
 
             limitSettingView: {} as bootstrap.Modal,
             limitSettingLoading: true,
@@ -592,6 +819,31 @@ export default defineComponent({
             alertTypeLimit: 'info',
             showAlertLimit: false,
             performRadioStatsReset: false,
+
+            reactiveSettingView: {} as bootstrap.Modal,
+            reactiveSettingLoading: true,
+
+            currentReactiveList: {} as ReactivePowerStatus,
+            targetReactiveList: {} as ReactivePowerConfig,
+
+            targetReactiveMin: -100,
+            targetReactiveMax: 100,
+            targetReactiveTypeText: this.$t('home.Relative'),
+            targetReactiveRelative: true,
+
+            alertMessageReactive: '',
+            alertTypeReactive: 'info',
+            showAlertReactive: false,
+
+            powerFactorSettingView: {} as bootstrap.Modal,
+            powerFactorSettingLoading: true,
+
+            currentPowerFactorList: {} as PowerFactorStatus,
+            targetPowerFactorList: {} as PowerFactorConfig,
+
+            alertMessagePowerFactor: '',
+            alertTypePowerFactor: 'info',
+            showAlertPowerFactor: false,
 
             powerSettingView: {} as bootstrap.Modal,
             powerSettingSerial: '',
@@ -619,6 +871,8 @@ export default defineComponent({
         this.devInfoView = new bootstrap.Modal('#devInfoView');
         this.gridProfileView = new bootstrap.Modal('#gridProfileView');
         this.limitSettingView = new bootstrap.Modal('#limitSettingView');
+        this.reactiveSettingView = new bootstrap.Modal('#reactivePowerSettingView');
+        this.powerFactorSettingView = new bootstrap.Modal('#powerFactorSettingView');
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
     },
     unmounted() {
@@ -654,6 +908,21 @@ export default defineComponent({
         },
         currentLimitRelative(): string {
             return this.$n(this.currentLimitList.limit_relative, 'decimalOneDigit');
+        },
+        currentReactiveAbsolute(): string {
+            if (this.currentReactiveList.max_power > 0) {
+                return this.$n(
+                    (this.currentReactiveList.reactive_relative * this.currentReactiveList.max_power) / 100,
+                    'decimalNoDigits'
+                );
+            }
+            return '0';
+        },
+        currentReactiveRelative(): string {
+            return this.$n(this.currentReactiveList.reactive_relative, 'decimalOneDigit');
+        },
+        currentPowerFactorValue(): string {
+            return this.$n(this.currentPowerFactorList.power_factor, 'decimalThreeDigits');
         },
         inverterData(): Inverter[] {
             return this.liveData.inverters.slice().sort((a: Inverter, b: Inverter) => {
@@ -779,6 +1048,7 @@ export default defineComponent({
         },
         onShowGridProfile(serial: string) {
             this.gridProfileLoading = true;
+            this.gridProfileSerial = serial;
             fetch('/api/gridprofile/status?inv=' + serial, { headers: authHeader() })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
@@ -865,6 +1135,111 @@ export default defineComponent({
                 this.targetLimitMax = this.currentLimitList.max_power > 0 ? this.currentLimitList.max_power : 2250;
             }
             this.targetLimitRelative = isRelative;
+        },
+
+        onShowReactiveSettings(serial: string) {
+            this.showAlertReactive = false;
+            this.targetReactiveList.serial = '';
+            this.targetReactiveList.reactive_value = 0;
+            this.onSelectReactiveType(true);
+
+            this.reactiveSettingLoading = true;
+            fetch('/api/reactivepower/status', { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data) => {
+                    this.currentReactiveList = data[serial];
+                    this.targetReactiveList.serial = serial;
+                    this.reactiveSettingLoading = false;
+                });
+
+            this.reactiveSettingView.show();
+        },
+        onSetReactiveSettings(setPersistent: boolean) {
+            if (setPersistent) {
+                if (this.targetReactiveRelative) {
+                    this.targetReactiveList.reactive_type = LimitType.RelativPersistent;
+                } else {
+                    this.targetReactiveList.reactive_type = LimitType.AbsolutPersistent;
+                }
+            } else {
+                if (this.targetReactiveRelative) {
+                    this.targetReactiveList.reactive_type = LimitType.RelativNonPersistent;
+                } else {
+                    this.targetReactiveList.reactive_type = LimitType.AbsolutNonPersistent;
+                }
+            }
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(this.targetReactiveList));
+
+            fetch('/api/reactivepower/config', {
+                method: 'POST',
+                headers: authHeader(),
+                body: formData,
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type == 'success') {
+                        this.reactiveSettingView.hide();
+                    } else {
+                        this.alertMessageReactive = this.$t('apiresponse.' + response.code, response.param);
+                        this.alertTypeReactive = response.type;
+                        this.showAlertReactive = true;
+                    }
+                });
+        },
+        onSelectReactiveType(isRelative: boolean) {
+            if (isRelative) {
+                this.targetReactiveTypeText = this.$t('home.Relative');
+                this.targetReactiveMin = -100;
+                this.targetReactiveMax = 100;
+            } else {
+                this.targetReactiveTypeText = this.$t('home.Absolute');
+                const maxPow = this.currentReactiveList.max_power > 0 ? this.currentReactiveList.max_power : 2250;
+                this.targetReactiveMin = -maxPow;
+                this.targetReactiveMax = maxPow;
+            }
+            this.targetReactiveRelative = isRelative;
+        },
+
+        onShowPowerFactorSettings(serial: string) {
+            this.showAlertPowerFactor = false;
+            this.targetPowerFactorList.serial = '';
+            this.targetPowerFactorList.power_factor = 0;
+
+            this.powerFactorSettingLoading = true;
+            fetch('/api/powerfactor/status', { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data) => {
+                    this.currentPowerFactorList = data[serial];
+                    this.targetPowerFactorList.serial = serial;
+                    this.powerFactorSettingLoading = false;
+                });
+
+            this.powerFactorSettingView.show();
+        },
+        onSetPowerFactorSettings(setPersistent: boolean) {
+            this.targetPowerFactorList.power_factor_type = setPersistent
+                ? LimitType.RelativPersistent
+                : LimitType.RelativNonPersistent;
+
+            const formData = new FormData();
+            formData.append('data', JSON.stringify(this.targetPowerFactorList));
+
+            fetch('/api/powerfactor/config', {
+                method: 'POST',
+                headers: authHeader(),
+                body: formData,
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type == 'success') {
+                        this.powerFactorSettingView.hide();
+                    } else {
+                        this.alertMessagePowerFactor = this.$t('apiresponse.' + response.code, response.param);
+                        this.alertTypePowerFactor = response.type;
+                        this.showAlertPowerFactor = true;
+                    }
+                });
         },
 
         onShowPowerSettings(serial: string) {

@@ -18,7 +18,9 @@
 #include "WebApi_network.h"
 #include "WebApi_ntp.h"
 #include "WebApi_power.h"
+#include "WebApi_powerfactor.h"
 #include "WebApi_prometheus.h"
+#include "WebApi_reactivepower.h"
 #include "WebApi_security.h"
 #include "WebApi_sysstatus.h"
 #include "WebApi_webapp.h"
@@ -64,7 +66,9 @@ private:
     WebApiNetworkClass _webApiNetwork;
     WebApiNtpClass _webApiNtp;
     WebApiPowerClass _webApiPower;
+    WebApiPowerFactorClass _webApiPowerFactor;
     WebApiPrometheusClass _webApiPrometheus;
+    WebApiReactivePowerClass _webApiReactivePower;
     WebApiSecurityClass _webApiSecurity;
     WebApiSysstatusClass _webApiSysstatus;
     WebApiWebappClass _webApiWebapp;

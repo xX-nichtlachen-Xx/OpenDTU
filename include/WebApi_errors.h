@@ -97,4 +97,27 @@ enum WebApiError {
 
     HardwareBase = 12000,
     HardwarePinMappingLength,
+
+    GridProfileBase = 13000,
+    GridProfileSerialZero,
+    GridProfileInvalidInverter,
+    GridProfileInvalidPayload,
+    GridProfileWriteInProgress,
+    GridProfileWriteQueued,
+    GridProfileWriteAborted,
+    GridProfileUnknownPreset,
+    GridProfileEncodeFailed,
+    GridProfileRefreshQueued,
+
+    ReactivePowerBase = 14000,
+    ReactivePowerSerialZero,
+    ReactivePowerInvalidLimit,
+    ReactivePowerInvalidType,
+    ReactivePowerInvalidInverter,
+
+    PowerFactorBase = 15000,
+    PowerFactorSerialZero,
+    PowerFactorInvalidLimit,
+    PowerFactorInvalidType,
+    PowerFactorInvalidInverter,
 };

@@ -33,7 +33,9 @@ void WebApiClass::init(Scheduler& scheduler)
     _webApiNetwork.init(_server, scheduler);
     _webApiNtp.init(_server, scheduler);
     _webApiPower.init(_server, scheduler);
+    _webApiPowerFactor.init(_server, scheduler);
     _webApiPrometheus.init(_server, scheduler);
+    _webApiReactivePower.init(_server, scheduler);
     _webApiSecurity.init(_server, scheduler);
     _webApiSysstatus.init(_server, scheduler);
     _webApiWebapp.init(_server, scheduler);

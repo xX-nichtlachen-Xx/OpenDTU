@@ -31,6 +31,10 @@ public:
     void removeCommands(InverterAbstract* inv);
     uint8_t countSimilarCommands(std::shared_ptr<CommandAbstract> cmd);
 
+    // Grid-profile-write queue helpers.
+    uint8_t removePendingGridProfileWriteCommands(InverterAbstract* inv);
+    bool hasGridProfileWriteCommands(InverterAbstract* inv);
+
     void enqueCommand(std::shared_ptr<CommandAbstract> cmd)
     {
         DEBUG_PRINT("Queue size before: %ld", _commandQueue.size());
