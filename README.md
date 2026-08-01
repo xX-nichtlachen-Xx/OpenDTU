@@ -4,9 +4,12 @@
 You can change and modify the used Grid Profile now.
 You can change the used Power Factor now.
 You can change the Reactive Power now.
+Youn change the overall produced energy value per string.
+
 
 Handle with care and on your own risk!
 Testetd with HM Inverters only!
+
 
 [GridProfile Selector/Editor and new Power Commands](https://github.com/tbnobody/OpenDTU/discussions/3168)
 
