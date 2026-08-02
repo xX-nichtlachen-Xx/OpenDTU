@@ -266,9 +266,20 @@ bool HM_Abstract::sendGridProfileWriteRequest(const std::vector<uint8_t>& profil
     }
 
     constexpr size_t chunkSize = 16;
+    constexpr size_t crcSize = 2;
     const size_t total = profile.size();
-    const size_t frameCount = (total + chunkSize - 1) / chunkSize;
-    if (frameCount == 0 || frameCount > 127) {
+    const size_t dataFrameCount = (total + chunkSize - 1) / chunkSize;
+    if (dataFrameCount == 0) {
+        return false;
+    }
+
+    // If the last data chunk already fills a whole 16-byte frame, the CRC16
+    // cannot be appended inline (would produce an 18-byte row) -- it must go
+    // out as its own extra, data-less, isLast frame instead.
+    const size_t lastChunkLen = total - (dataFrameCount - 1) * chunkSize;
+    const bool crcFitsInline = lastChunkLen + crcSize <= chunkSize;
+    const size_t frameCount = dataFrameCount + (crcFitsInline ? 0 : 1);
+    if (frameCount > 127) {
         return false;
     }
 
@@ -277,8 +288,9 @@ bool HM_Abstract::sendGridProfileWriteRequest(const std::vector<uint8_t>& profil
     GridProfile()->setLastWriteCommandSuccess(CMD_PENDING);
     _gridProfileWriteRunning = true;
 
-    for (size_t i = 0; i < frameCount; i++) {
-        const bool isLast = (i + 1 == frameCount);
+    for (size_t i = 0; i < dataFrameCount; i++) {
+        const bool isLastData = (i + 1 == dataFrameCount);
+        const bool isLastFrame = isLastData && crcFitsInline;
         const size_t offset = i * chunkSize;
         const size_t chunkLen = std::min(chunkSize, total - offset);
 
@@ -287,7 +299,7 @@ bool HM_Abstract::sendGridProfileWriteRequest(const std::vector<uint8_t>& profil
         // because setPayload() lazily applies the trailing CRC16 on the last
         // frame using the full-profile buffer and the packet-number's isLast.
         cmd->setFullProfile(profile.data(), profile.size());
-        cmd->setPacketNumber(static_cast<uint8_t>(i + 1), isLast);
+        cmd->setPacketNumber(static_cast<uint8_t>(i + 1), isLastFrame);
         cmd->setPayload(&profile[offset], static_cast<uint8_t>(chunkLen));
 
         char hex[3 * 24 + 1];
@@ -298,10 +310,25 @@ bool HM_Abstract::sendGridProfileWriteRequest(const std::vector<uint8_t>& profil
         hex[off] = '\0';
         ESP_LOGI(TAG, "GridProfileWrite TX chunk %u/%u nub=0x%02X len=%u: %s",
             static_cast<unsigned>(i + 1), static_cast<unsigned>(frameCount),
-            static_cast<uint8_t>((i + 1) | (isLast ? 0x80 : 0x00)),
+            static_cast<uint8_t>((i + 1) | (isLastFrame ? 0x80 : 0x00)),
             static_cast<unsigned>(chunkLen), hex);
 
         _radio->enqueCommand(cmd);
+    }
+
+    if (!crcFitsInline) {
+        // Last data chunk was already full 16 bytes -- send the CRC16 as its
+        // own zero-length, isLast frame right after it.
+        auto crcCmd = _radio->prepareCommand<GridProfileWriteCommand>(this);
+        crcCmd->setFullProfile(profile.data(), profile.size());
+        crcCmd->setPacketNumber(static_cast<uint8_t>(dataFrameCount + 1), true);
+        crcCmd->setPayload(profile.data(), 0);
+
+        ESP_LOGI(TAG, "GridProfileWrite TX chunk %u/%u nub=0x%02X len=0 (CRC-only frame)",
+            static_cast<unsigned>(dataFrameCount + 1), static_cast<unsigned>(frameCount),
+            static_cast<uint8_t>((dataFrameCount + 1) | 0x80));
+
+        _radio->enqueCommand(crcCmd);
     }
 
     return true;

@@ -22,9 +22,10 @@ implementation:
   in getDataPayload() (this matches ActiveDTU's known-good behaviour on
   the RF-layer; XOR checksum in usart_nrf.c is a STM32<->nRF UART link
   concern, NOT the RF trailer)
-* Chunk size is 16 bytes. Grid profiles are <= GRID_PROFILE_SIZE (141 B),
-  so a chunk + inline CRC16 always fits within RF_LEN (32) without the
-  split-CRC quirk that firmware writes needed.
+* Chunk size is 16 bytes. If the last data chunk is already a full 16
+  bytes, the trailing CRC16 cannot be appended inline (that would make an
+  18-byte row) -- it is instead sent as its own extra, data-less, isLast
+  frame, same split-CRC quirk firmware writes need.
 
 The inverter answers only on the LAST frame with mainCmd == 0x8A and a state
 byte inside the fragment payload. State byte 0 means the profile was accepted
