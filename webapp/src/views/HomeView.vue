@@ -350,6 +350,9 @@
 
     <ModalDialog modalId="devInfoView" :title="$t('home.InverterInfo')" :loading="devInfoLoading">
         <DevInfo :devInfoList="devInfoList" />
+        <BootstrapAlert v-model="showFirmwareUpdateAlert" :variant="firmwareUpdateAlertType" class="mb-3">
+            {{ firmwareUpdateAlertMessage }}
+        </BootstrapAlert>
         <template #footer>
             <button
                 v-if="devInfoList.firmware_update_running"
@@ -624,6 +627,9 @@ export default defineComponent({
             alertTypePower: 'info',
             showAlertPower: false,
             successCommandPower: '',
+            firmwareUpdateAlertMessage: '',
+            firmwareUpdateAlertType: 'info',
+            showFirmwareUpdateAlert: false,
 
             isWebsocketConnected: false,
         };
@@ -795,6 +801,9 @@ export default defineComponent({
         },
         onShowDevInfo(serial: string) {
             this.devInfoLoading = true;
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
             fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
@@ -809,6 +818,10 @@ export default defineComponent({
             this.devInfoView.show();
         },
         onStartFirmwareUpdate(serial: string) {
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
+
             fetch('/api/devinfo/update?inv=' + serial, {
                 method: 'POST',
                 headers: authHeader(),
@@ -817,13 +830,26 @@ export default defineComponent({
                 .then((response) => {
                     if (response.type == 'success') {
                         this.startDevInfoPolling(serial);
+                    } else {
+                        this.firmwareUpdateAlertMessage = response.message || 'Firmware update could not be started.';
+                        this.firmwareUpdateAlertType = 'danger';
+                        this.showFirmwareUpdateAlert = true;
                     }
                 })
                 .catch(() => {
+                    this.firmwareUpdateAlertMessage = 'Firmware update could not be started.';
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
                     console.warn('Failed to start firmware update');
                 });
         },
         onAbortFirmwareUpdate(serial: string) {
+            this.stopDevInfoPolling();
+            if (this.devInfoList) {
+                this.devInfoList.firmware_update_running = false;
+                this.devInfoList.serial = serial;
+            }
+
             fetch('/api/devinfo/update/abort?inv=' + serial, {
                 method: 'POST',
                 headers: authHeader(),

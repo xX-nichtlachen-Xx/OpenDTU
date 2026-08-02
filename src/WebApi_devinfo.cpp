@@ -61,7 +61,8 @@ bool pickFirmwareSourceForInverter(const std::shared_ptr<InverterAbstract>& inv,
 
     size_t psramLen = 0;
     const uint8_t* psramPtr = peekFirmwareUploadInPsram(psramLen);
-    if (psramPtr != nullptr && psramLen > 0) {
+    const String uploadedVariant = getFirmwareUploadVariant();
+    if (psramPtr != nullptr && psramLen > 0 && uploadedVariant == variant) {
         outRawAscii = psramPtr;
         outRawAsciiLen = psramLen;
         return true;
@@ -131,6 +132,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
     const uint64_t serial = WebApi.parseSerialFromRequest(request);
 
     if (serial == 0) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Serial must be a number > 0!";
         retMsg["code"] = WebApiError::InverterSerialZero;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
@@ -139,6 +141,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
 
     auto inv = Hoymiles.getInverterBySerial(serial);
     if (inv == nullptr) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Invalid inverter specified!";
         retMsg["code"] = WebApiError::PowerInvalidInverter;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
@@ -149,6 +152,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
     const uint8_t* rawAscii = nullptr;
     size_t rawAsciiLen = 0;
     if (!pickFirmwareSourceForInverter(inv, fsPath, rawAscii, rawAsciiLen)) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Firmware image is not available for this inverter type!";
         retMsg["code"] = WebApiError::GenericInternalServerError;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
@@ -156,6 +160,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
     }
 
     if (!inv->sendFirmwareUpdateRequest(fsPath, rawAscii, rawAsciiLen)) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Update could not be started!";
         retMsg["code"] = WebApiError::GenericInternalServerError;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
@@ -180,6 +185,7 @@ void WebApiDevInfoClass::onFirmwareUpdateAbort(AsyncWebServerRequest* request)
     const uint64_t serial = WebApi.parseSerialFromRequest(request);
 
     if (serial == 0) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Serial must be a number > 0!";
         retMsg["code"] = WebApiError::InverterSerialZero;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
@@ -188,6 +194,7 @@ void WebApiDevInfoClass::onFirmwareUpdateAbort(AsyncWebServerRequest* request)
 
     auto inv = Hoymiles.getInverterBySerial(serial);
     if (inv == nullptr) {
+        retMsg["type"] = "danger";
         retMsg["message"] = "Invalid inverter specified!";
         retMsg["code"] = WebApiError::PowerInvalidInverter;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);

@@ -18,6 +18,7 @@ struct PsramFirmwareUploadBuffer {
     uint8_t* data = nullptr;
     size_t size = 0;
     size_t capacity = 0;
+    String variant;
 };
 
 PsramFirmwareUploadBuffer g_psramFirmwareUploadBuffer;
@@ -79,9 +80,12 @@ bool ensureParentDirectories(const String& path)
 }
 } // namespace
 
-bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len)
+bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& variant)
 {
     if (data == nullptr || len == 0) {
+        if (!variant.isEmpty()) {
+            g_psramFirmwareUploadBuffer.variant = variant;
+        }
         return true;
     }
 
@@ -103,6 +107,10 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len)
 
         g_psramFirmwareUploadBuffer.data = newBuffer;
         g_psramFirmwareUploadBuffer.capacity = newCapacity;
+    }
+
+    if (!variant.isEmpty()) {
+        g_psramFirmwareUploadBuffer.variant = variant;
     }
 
     memcpy(g_psramFirmwareUploadBuffer.data + g_psramFirmwareUploadBuffer.size, data, len);
@@ -130,6 +138,16 @@ const uint8_t* peekFirmwareUploadInPsram(size_t& outLen)
     return g_psramFirmwareUploadBuffer.data;
 }
 
+String getFirmwareUploadVariant()
+{
+    return g_psramFirmwareUploadBuffer.variant;
+}
+
+void setFirmwareUploadVariant(const String& variant)
+{
+    g_psramFirmwareUploadBuffer.variant = variant;
+}
+
 void clearFirmwareUploadFromPsram()
 {
     if (g_psramFirmwareUploadBuffer.data != nullptr) {
@@ -138,6 +156,7 @@ void clearFirmwareUploadFromPsram()
     g_psramFirmwareUploadBuffer.data = nullptr;
     g_psramFirmwareUploadBuffer.size = 0;
     g_psramFirmwareUploadBuffer.capacity = 0;
+    g_psramFirmwareUploadBuffer.variant = String();
 }
 
 void WebApiFileClass::init(AsyncWebServer& server, Scheduler& scheduler)
@@ -298,6 +317,12 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
 
         if (usePsram) {
             clearFirmwareUploadFromPsram();
+            const String uploadPath = normalizeUploadPath(fileParam);
+            const int slashPos = uploadPath.lastIndexOf('/');
+            const int dotPos = uploadPath.lastIndexOf('.');
+            if (slashPos >= 0 && dotPos > slashPos) {
+                setFirmwareUploadVariant(uploadPath.substring(slashPos + 1, dotPos));
+            }
             // NOTE: do NOT return here -- this first callback invocation
             // already carries the first (and for small files, the only)
             // chunk of data. Returning early discarded that chunk, leaving
@@ -319,7 +344,8 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
 
     if (len) {
         if (request->hasParam("file") && normalizeUploadPath(request->getParam("file")->value()).startsWith("/firmware/")) {
-            if (!writeFirmwareUploadToPsram(data, len)) {
+            String variant = getFirmwareUploadVariant();
+            if (!writeFirmwareUploadToPsram(data, len, variant)) {
                 request->send(500);
                 return;
             }

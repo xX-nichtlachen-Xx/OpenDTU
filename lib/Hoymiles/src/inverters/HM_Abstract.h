@@ -50,6 +50,7 @@ private:
     uint16_t* _fwLineLengths = nullptr;        // ASCII length per line
     size_t _fwLineCount = 0;
     size_t _fwNextLineIndex = 0;
+    bool _firmwareUpdateAborted = false;
     std::mutex _pendingFirmwareRowsMutex;
 
     // Scans the source once and fills _fwLineOffsets/_fwLineLengths. Caller
