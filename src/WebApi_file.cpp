@@ -8,6 +8,7 @@
 #include "Utils.h"
 #include "WebApi.h"
 #include "WebApi_errors.h"
+#include <Arduino.h>
 #include <AsyncJson.h>
 #include <LittleFS.h>
 #include <esp_heap_caps.h>
@@ -90,9 +91,17 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& v
     }
 
     if (g_psramFirmwareUploadBuffer.capacity < g_psramFirmwareUploadBuffer.size + len) {
+        if (ESP.getPsramSize() == 0) {
+            return false;
+        }
+
         size_t newCapacity = g_psramFirmwareUploadBuffer.capacity == 0 ? len : g_psramFirmwareUploadBuffer.capacity;
         while (newCapacity < g_psramFirmwareUploadBuffer.size + len) {
             newCapacity *= 2;
+        }
+
+        if (ESP.getFreePsram() < newCapacity) {
+            return false;
         }
 
         uint8_t* newBuffer = static_cast<uint8_t*>(heap_caps_malloc(newCapacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
@@ -376,12 +385,24 @@ void WebApiFileClass::onFileUploadFinish(AsyncWebServerRequest* request)
         restart = restartValue.equalsIgnoreCase("1") || restartValue.equalsIgnoreCase("true");
     }
 
-    AsyncWebServerResponse* response = request->beginResponse(200, asyncsrv::T_text_plain, "OK");
+    bool uploadSucceeded = true;
+    if (request->hasParam("file")) {
+        const String fileParam = request->getParam("file")->value();
+        const String name = normalizeUploadPath(fileParam);
+        if (name.startsWith("/firmware/")) {
+            size_t uploadedLen = 0;
+            const uint8_t* uploadedData = peekFirmwareUploadInPsram(uploadedLen);
+            uploadSucceeded = uploadedData != nullptr && uploadedLen > 0 && !getFirmwareUploadVariant().isEmpty();
+        }
+    }
+
+    AsyncWebServerResponse* response = request->beginResponse(uploadSucceeded ? 200 : 500, asyncsrv::T_text_plain,
+        uploadSucceeded ? "OK" : "Firmware upload failed");
     response->addHeader(asyncsrv::T_Connection, asyncsrv::T_close);
     response->addHeader(asyncsrv::T_CORS_ACAO, "*");
     request->send(response);
 
-    if (restart) {
+    if (uploadSucceeded && restart) {
         RestartHelper.triggerRestart();
     }
 }

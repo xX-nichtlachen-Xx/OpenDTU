@@ -6,7 +6,7 @@ Supported models: Hoymiles HM‑300, 350, 400, 600, 700, 800, 1000, 1200, 1500.
 If the update aborts or the inverter becomes unresponsive after flashing, perform a reflash.
 Firmware files are located in: ./Firmware
 
-PSRAM or big LittleFS needed for files!
+PSRAM needed for files!
 It is recommended to disable all NRF24/Inverter traffic during the update.
 
 Upload Firmware File.
