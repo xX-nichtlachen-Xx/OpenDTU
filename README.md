@@ -1,4 +1,4 @@
-# OpenDTU with Hoymiles HM Inverter Firmware Updater
+# OpenDTU with Hoymiles HM/S Inverter Firmware Updater
 
 
 Update your HM/HMS inverter firmware at your own risk.
