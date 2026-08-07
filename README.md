@@ -21,10 +21,9 @@ HM_1T_1_1_0.hex
 HM_2T_1_1_2.hex
 HM_4T_1_1_3.hex
 
-HMS_1T_08_26.hex
+HMS_1T_2_0_2.hex
 HMS_2T_1_3_9.hex
-HMS_4T_08_26.hex
-
+HMS_4T_2_0_4.hex
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
