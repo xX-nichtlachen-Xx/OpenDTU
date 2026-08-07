@@ -44,11 +44,6 @@ void FirmwareCommand::udpateCRC(const uint8_t start_index, const uint8_t len)
     (void)len;
 }
 
-bool FirmwareCommand::isLegacyFirmwareMode() const
-{
-    return CommandAbstract::isLegacyFirmwareMode();
-}
-
 bool FirmwareCommand::handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id)
 {
     // Confirmed on real hardware: the inverter responds with mainCmd = cmd | 0x80

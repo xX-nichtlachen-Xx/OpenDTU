@@ -13,6 +13,5 @@ public:
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::AllowMultiple; }
 
 protected:
-    bool isLegacyFirmwareMode() const;
     void udpateCRC(const uint8_t start_index, const uint8_t len);
 };

@@ -62,11 +62,6 @@ uint8_t CommandAbstract::getDataSize() const
     return _payload_size + 1; // Original payload plus crc8
 }
 
-bool CommandAbstract::isLegacyFirmwareMode() const
-{
-    return _inv != nullptr && _inv->getLegacyFirmwareMode();
-}
-
 void CommandAbstract::setTargetAddress(const uint64_t address)
 {
     convertSerialToPacketId(&_payload[1], address);

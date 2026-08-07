@@ -210,8 +210,6 @@ bool HM_Abstract::sendFirmwareUpdateRequest(const String& littleFsPath,
         return false;
     }
 
-    setLegacyFirmwareMode(typeName().indexOf("HM-600/700/800-2T") >= 0 || typeName().indexOf("HM-300/350/400-1T") >= 0 || typeName().indexOf("HM-1000/1200/1500-4T") >= 0);
-
     const bool hasFileSource = littleFsPath.length() > 0;
     const bool hasPsramSource = (rawAscii != nullptr && rawAsciiLen > 0);
     if (hasFileSource == hasPsramSource) {

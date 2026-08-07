@@ -24,16 +24,19 @@ String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
     }
 
     const String typeName = inv->typeName();
-    if (typeName.indexOf("HM-300/350/400-1T") >= 0) {
-        return "1in1";
+    if (typeName.indexOf("HM-300/350/400-1T") >= 0
+        || typeName.indexOf("HMS-300/350/400/450/500-1T") >= 0
+        || typeName.indexOf("HMS-450/500-1T v2 ") >= 0){
+            return "1in1";
     }
-    if (typeName.indexOf("HM-600/700/800-2T") >= 0) {
-        return "2in1";
+    if (typeName.indexOf("HM-600/700/800-2T") >= 0
+        || typeName.indexOf("HMS-600/700/800/900/1000-2T") >= 0) {
+            return "2in1";
     }
-    if (typeName.indexOf("HM-1000/1200/1500-4T") >= 0) {
-        return "4in1";
+    if (typeName.indexOf("HM-1000/1200/1500-4T") >= 0
+        || typeName.indexOf("HMS-1600/1800/2000-4T ") >= 0) {
+            return "4in1";
     }
-
     return "unsupported";
 }
 

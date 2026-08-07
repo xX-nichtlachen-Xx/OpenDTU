@@ -37,8 +37,6 @@ public:
     const String& serialString() const;
     void setName(const char* name);
     const char* name() const;
-    void setLegacyFirmwareMode(const bool enabled);
-    bool getLegacyFirmwareMode() const;
     virtual String typeName() const = 0;
     virtual const byteAssign_t* getByteAssignment() const = 0;
     virtual uint8_t getByteAssignmentSize() const = 0;
@@ -145,7 +143,6 @@ private:
     bool _zeroValuesIfUnreachable = false;
     bool _zeroYieldDayOnMidnight = false;
     bool _clearEventlogOnMidnight = false;
-    bool _legacyFirmwareMode = false;
 
     int8_t _lastRssi = -127;
 

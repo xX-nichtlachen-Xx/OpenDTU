@@ -63,16 +63,6 @@ const char* InverterAbstract::name() const
     return _name;
 }
 
-void InverterAbstract::setLegacyFirmwareMode(const bool enabled)
-{
-    _legacyFirmwareMode = enabled;
-}
-
-bool InverterAbstract::getLegacyFirmwareMode() const
-{
-    return _legacyFirmwareMode;
-}
-
 bool InverterAbstract::isProducing()
 {
     float totalAc = 0;
