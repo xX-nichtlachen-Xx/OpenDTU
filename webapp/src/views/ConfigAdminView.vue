@@ -112,13 +112,6 @@
             </div>
             <div v-else class="row g-3 align-items-center form-group pt-2">
                 <div class="col-sm">
-                    <select class="form-select" v-model="firmwareVariant">
-                        <option value="1in1">{{ $t('fileadmin.FirmwareVariant1in1') }}</option>
-                        <option value="2in1">{{ $t('fileadmin.FirmwareVariant2in1') }}</option>
-                        <option value="4in1">{{ $t('fileadmin.FirmwareVariant4in1') }}</option>
-                    </select>
-                </div>
-                <div class="col-sm">
                     <input
                         class="form-control"
                         type="file"
@@ -221,7 +214,6 @@ export default defineComponent({
             firmwareUploadSuccess: false,
             firmwareFileSelected: false,
             firmwareFile: {} as Blob,
-            firmwareVariant: '2in1',
             restoreFileSelect: 'config.json',
             restoreList: [
                 {
@@ -380,7 +372,7 @@ export default defineComponent({
 
             const formData = new FormData();
             formData.append('firmware', this.firmwareFile, 'firmware.hex');
-            request.open('post', '/api/file/upload?file=firmware/' + this.firmwareVariant + '.hex&restart=false');
+            request.open('post', '/api/file/upload?file=firmware/uploaded.hex&restart=false');
             authHeader().forEach((value, key) => {
                 request.setRequestHeader(key, value);
             });

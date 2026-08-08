@@ -11,75 +11,218 @@
 #include <LittleFS.h>
 #include <ctime>
 #include <vector>
+#include "utils/IntelHex.h"
 
 namespace {
-// Reference gateway firmware (usart_nrf.h InverterType enum) treats
-// Inverter_HM_OneToOne/OneToTwo/OneToFour identically for the DOWN_PRO
-// firmware-download flow (all >= Inverter_Pro -> same 16-byte chunk size,
-// per-row CRC16 scheme), so all three HM channel counts are supported here.
-String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
+
+bool isAsciiDigit(const char c)
 {
-    if (inv == nullptr) {
-        return "unsupported";
+    return c >= '0' && c <= '9';
+}
+
+// The first Intel-Hex-style line of every known firmware image is a fixed
+// vendor-specific "identity" row (not real flash data) encoding the target
+// hardware. Verified against the real single-phase (HM/HMS) images in
+// Firmware/*.hex: after IntelHex::decodeRow() strips the line's own trailing
+// checksum byte, the row is exactly 10 bytes:
+//   [0]=LL(0x06)  [1..2]=address(0x0000)  [3]=record type(0x11)
+//   [4]=const 0x10  [5]=channel code (0x10=1T 0x11=2T 0x12=4T 0x13=6T)
+//   [6]=DSP flag (0x00 or 0x10)  [7]=unknown/revision  [8..9]=fw version (BE)
+// 0x13/6T is the only channel count that exists exclusively on three-phase
+// (HMT) hardware -- no single-phase HM/HMS 6T model exists, so it's an
+// unambiguous signal. HMT *-4T is NOT covered here: 4T also exists as a
+// single-phase HM/HMS model with the same channel code, and no real capture
+// is available yet to tell the two apart, so it intentionally still fails
+// to match (see firmwareFileMatchesInverter()).
+struct FirmwareRowRule {
+    uint8_t channelCode;
+    uint8_t dsp;
+    uint8_t channelCount;
+};
+
+constexpr FirmwareRowRule kFirmwareRowRules[] = {
+    // channelCode, dsp, channelCount
+    { 0x10, 0x00, 1 }, // HM/HMS *-1T
+    { 0x11, 0x00, 2 }, // HM *-2T
+    { 0x11, 0x10, 2 }, // HMS *-2T
+    { 0x12, 0x00, 4 }, // HM *-4T
+    { 0x12, 0x10, 4 }, // HMS *-4T
+    { 0x13, 0x00, 6 }, // HMT *-6T
+};
+
+// Extracts the phase/channel information encoded in the trailing "-<N>T" of
+// the hardware-REPORTED model name (DevInfoParser::getHwModelName(), e.g.
+// "HMS-1800-4T" -> 4, "HMT-2250-6T" -> 6), three-phase iff the name starts
+// with "HMT-". Returns false if no such suffix is found (e.g. HERF-* names).
+// `outDsp` follows the row's raw encoding (0x00/0x10): HMS models use 0x10,
+// EXCEPT the *-1T variant (shared with HM), which -- like all other HM/HMT
+// models -- uses 0x00.
+bool parseHwModelChannelInfo(const String& hwModelName, bool& outIsThreePhase, uint8_t& outChannelCount, uint8_t& outDsp)
+{
+    outIsThreePhase = hwModelName.startsWith("HMT-");
+    const bool isHms = hwModelName.startsWith("HMS-");
+    outChannelCount = 0;
+    outDsp = 0;
+
+    for (unsigned int i = 0; i < hwModelName.length(); ++i) {
+        if (hwModelName[i] != 'T') {
+            continue;
+        }
+        unsigned int digitsStart = i;
+        while (digitsStart > 0 && isAsciiDigit(hwModelName[digitsStart - 1])) {
+            --digitsStart;
+        }
+        if (digitsStart == i) {
+            continue; // no digit immediately before this 'T'
+        }
+        outChannelCount = static_cast<uint8_t>(hwModelName.substring(digitsStart, i).toInt());
+        break;
+    }
+    if (outChannelCount == 0) {
+        return false;
     }
 
-    const String typeName = inv->typeName();
-    if (typeName.indexOf("HM-300/350/400-1T") >= 0
-        || typeName.indexOf("HMS-300/350/400/450/500-1T") >= 0
-        || typeName.indexOf("HMS-450/500-1T v2 ") >= 0){
-            return "1in1";
+    outDsp = (isHms && outChannelCount != 1) ? 0x10 : 0x00;
+    return true;
+}
+
+bool lookupFirmwareRowChannelInfo(const uint8_t channelCode, const uint8_t dsp, uint8_t& outChannelCount)
+{
+    for (const auto& rule : kFirmwareRowRules) {
+        if (rule.channelCode == channelCode && rule.dsp == dsp) {
+            outChannelCount = rule.channelCount;
+            return true;
+        }
     }
-    if (typeName.indexOf("HM-600/700/800-2T") >= 0
-        || typeName.indexOf("HMS-600/700/800/900/1000-2T") >= 0) {
-            return "2in1";
+    return false;
+}
+
+// Reads just the first line (up to '\n', CR tolerated) of the firmware
+// source into `out`; `out` is NOT NUL-terminated, see outLen.
+bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const size_t rawAsciiLen, char* out, const size_t maxLen, size_t& outLen)
+{
+    outLen = 0;
+
+    if (fsPath.length() > 0) {
+        File f = LittleFS.open(fsPath, "r");
+        if (!f) {
+            return false;
+        }
+        outLen = f.readBytesUntil('\n', out, maxLen);
+        f.close();
+        return outLen > 0;
     }
-    if (typeName.indexOf("HM-1000/1200/1500-4T") >= 0
-        || typeName.indexOf("HMS-1600/1800/2000-4T ") >= 0) {
-            return "4in1";
+
+    if (rawAscii == nullptr || rawAsciiLen == 0) {
+        return false;
     }
-    return "unsupported";
+
+    while (outLen < rawAsciiLen && outLen < maxLen && rawAscii[outLen] != '\n') {
+        out[outLen] = static_cast<char>(rawAscii[outLen]);
+        ++outLen;
+    }
+    return outLen > 0;
+}
+
+// Parses the firmware source's first line and reports whether it targets the
+// same hardware the inverter actually reported (both phase count and channel
+// count must agree). Sets `outReason` on any failure (shown to the user).
+bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
+                                 const String& fsPath,
+                                 const uint8_t* rawAscii,
+                                 const size_t rawAsciiLen,
+                                 String& outReason)
+{
+    const String hwModelName = inv->DevInfo()->getHwModelName();
+    bool invIsThreePhase = false;
+    uint8_t invChannelCount = 0;
+    uint8_t invDsp = 0;
+    if (hwModelName.isEmpty() || !parseHwModelChannelInfo(hwModelName, invIsThreePhase, invChannelCount, invDsp)) {
+        outReason = "Inverter hardware model is not known yet (no device info received)!";
+        return false;
+    }
+
+    char lineAscii[64];
+    size_t lineLen = 0;
+    if (!readFirstFirmwareLine(fsPath, rawAscii, rawAsciiLen, lineAscii, sizeof(lineAscii), lineLen)) {
+        outReason = "Firmware file could not be read!";
+        return false;
+    }
+
+    uint8_t rowBytes[32];
+    size_t rowLen = 0;
+    if (IntelHex::decodeRow(lineAscii, lineLen, rowBytes, rowLen) != IntelHex::RowResult::Data || rowLen < 7) {
+        outReason = "Firmware file has an unrecognized identity row!";
+        return false;
+    }
+
+    uint8_t fileChannelCount = 0;
+    if (!lookupFirmwareRowChannelInfo(rowBytes[5], rowBytes[6], fileChannelCount)) {
+        outReason = "Firmware file target hardware could not be identified!";
+        return false;
+    }
+
+    // 6T is the only channel count that's exclusively three-phase (HMT) --
+    // everything else in kFirmwareRowRules is single-phase (HM/HMS).
+    const bool fileIsThreePhase = (fileChannelCount == 6);
+    if (fileIsThreePhase != invIsThreePhase || fileChannelCount != invChannelCount || rowBytes[6] != invDsp) {
+        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")!";
+        return false;
+    }
+
+    return true;
 }
 
 bool isFirmwareUpdateSupported(const std::shared_ptr<InverterAbstract>& inv)
 {
-    return getFirmwareVariant(inv) != "unsupported";
+    if (inv == nullptr || inv->DevInfo()->getLastUpdate() == 0) {
+        return false;
+    }
+    bool isThreePhase = false;
+    uint8_t channelCount = 0;
+    uint8_t dsp = 0;
+    return parseHwModelChannelInfo(inv->DevInfo()->getHwModelName(), isThreePhase, channelCount, dsp);
 }
 
-// Picks the on-the-fly firmware source for the inverter without decoding
-// anything: either the persistent PSRAM upload buffer (peeked without copy)
-// or a .hex file path on LittleFS. HM_Abstract streams it row by row.
-bool pickFirmwareSourceForInverter(const std::shared_ptr<InverterAbstract>& inv,
-                                   String& outFsPath,
-                                   const uint8_t*& outRawAscii,
-                                   size_t& outRawAsciiLen)
+// Human-readable channel descriptor derived from the hardware-reported model
+// name, purely informational (the actual upload no longer needs a variant
+// selection -- see firmwareFileMatchesInverter()).
+String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
+{
+    if (!isFirmwareUpdateSupported(inv)) {
+        return "unsupported";
+    }
+    bool isThreePhase = false;
+    uint8_t channelCount = 0;
+    uint8_t dsp = 0;
+    parseHwModelChannelInfo(inv->DevInfo()->getHwModelName(), isThreePhase, channelCount, dsp);
+    return String(static_cast<unsigned int>(channelCount)) + "in1";
+}
+
+// Picks the on-the-fly firmware source without decoding anything (other than
+// its first identity row, checked separately): either the persistent PSRAM
+// upload buffer (peeked without copy) or the uploaded .hex file on LittleFS.
+// HM_Abstract streams it row by row.
+bool pickFirmwareSource(String& outFsPath, const uint8_t*& outRawAscii, size_t& outRawAsciiLen)
 {
     outFsPath = String();
     outRawAscii = nullptr;
     outRawAsciiLen = 0;
 
-    const String variant = getFirmwareVariant(inv);
-    if (variant == "unsupported") {
-        return false;
-    }
-
     size_t psramLen = 0;
     const uint8_t* psramPtr = peekFirmwareUploadInPsram(psramLen);
-    const String uploadedVariant = getFirmwareUploadVariant();
-    if (psramPtr != nullptr && psramLen > 0 && uploadedVariant == variant) {
+    if (psramPtr != nullptr && psramLen > 0) {
         outRawAscii = psramPtr;
         outRawAsciiLen = psramLen;
         return true;
     }
 
-    String path = "/firmware/" + variant + ".hex";
-    if (LittleFS.exists(path)) {
-        outFsPath = path;
-        return true;
-    }
-    path = "/littlefs/firmware/" + variant + ".hex";
-    if (LittleFS.exists(path)) {
-        outFsPath = path;
-        return true;
+    static const char* const candidatePaths[] = { "/firmware/uploaded.hex", "/littlefs/firmware/uploaded.hex" };
+    for (const char* path : candidatePaths) {
+        if (LittleFS.exists(path)) {
+            outFsPath = path;
+            return true;
+        }
     }
 
     return false;
@@ -154,9 +297,18 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
     String fsPath;
     const uint8_t* rawAscii = nullptr;
     size_t rawAsciiLen = 0;
-    if (!pickFirmwareSourceForInverter(inv, fsPath, rawAscii, rawAsciiLen)) {
+    if (!pickFirmwareSource(fsPath, rawAscii, rawAsciiLen)) {
         retMsg["type"] = "danger";
-        retMsg["message"] = "Firmware image is not available for this inverter type!";
+        retMsg["message"] = "No firmware image has been uploaded!";
+        retMsg["code"] = WebApiError::GenericInternalServerError;
+        WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+        return;
+    }
+
+    String mismatchReason;
+    if (!firmwareFileMatchesInverter(inv, fsPath, rawAscii, rawAsciiLen, mismatchReason)) {
+        retMsg["type"] = "danger";
+        retMsg["message"] = mismatchReason;
         retMsg["code"] = WebApiError::GenericInternalServerError;
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
         return;
