@@ -2,7 +2,7 @@
 
 
 Update your HM/HMS inverter firmware at your own risk.
-Supported models: Hoymiles HM/S/T ‑300, 350, 400, 600, 700, 800, 1000, 1200, 1500, 2000, 2250.
+Supported models: Hoymiles HM/S/T ‑300, 350, 400, 600, 700, 800, 1000, 1200, 1500, 1600, 2000, 2250.
 If the update aborts or the inverter becomes unresponsive after flashing, perform a reflash.
 Firmware files are located in: ./Firmware
 
