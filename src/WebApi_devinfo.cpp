@@ -27,7 +27,8 @@ bool isAsciiDigit(const char c)
 // checksum byte, the row is exactly 10 bytes:
 //   [0]=LL(0x06)  [1..2]=address(0x0000)  [3]=record type(0x11)
 //   [4]=const 0x10  [5]=channel code (0x10=1T 0x11=2T 0x12=4T 0x13=6T)
-//   [6]=DSP flag (0x00 or 0x10)  [7]=unknown/revision  [8..9]=fw version (BE)
+//   [6]=DSP flag (0x00 or 0x10)  [7]=line type (0=MI, 1=B, see
+//   kFirmwareLineTypeRules)  [8..9]=fw version (BE)
 // 0x13/6T is the only channel count that exists exclusively on three-phase
 // (HMT) hardware -- no single-phase HM/HMS 6T model exists, so it's an
 // unambiguous signal. HMT *-4T is NOT covered here: 4T also exists as a
@@ -49,6 +50,34 @@ constexpr FirmwareRowRule kFirmwareRowRules[] = {
     { 0x12, 0x10, 4 }, // HMS *-4T
     { 0x13, 0x00, 6 }, // HMT *-6T
 };
+
+// Inverter serial-number prefix ("preSerial", top 16 bits of the upper
+// 32-bit half -- see e.g. HMS_1CH::isValidSerial()) mapped to the expected
+// value of the row's line-type byte [7]. Disambiguates sub-variants that
+// share the same channelCode/dsp (e.g. HMS_1CH vs HMS_1CHv2, both 0x10/0x00)
+// which hw_model_name alone doesn't always reveal.
+struct FirmwareLineTypeRule {
+    uint16_t preSerial;
+    uint8_t lineType;
+};
+
+constexpr FirmwareLineTypeRule kFirmwareLineTypeRules[] = {
+    { 0x1124, 0 }, // MI
+    { 0x1125, 1 }, // B
+    { 0x1140, 1 }, // B
+};
+
+bool lookupExpectedLineType(const uint64_t serial, uint8_t& outLineType)
+{
+    const uint16_t preSerial = static_cast<uint16_t>((serial >> 32) & 0xffff);
+    for (const auto& rule : kFirmwareLineTypeRules) {
+        if (rule.preSerial == preSerial) {
+            outLineType = rule.lineType;
+            return true;
+        }
+    }
+    return false;
+}
 
 // Extracts the phase/channel information encoded in the trailing "-<N>T" of
 // the hardware-REPORTED model name (DevInfoParser::getHwModelName(), e.g.
@@ -166,6 +195,12 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
     // everything else in kFirmwareRowRules is single-phase (HM/HMS).
     const bool fileIsThreePhase = (fileChannelCount == 6);
     if (fileIsThreePhase != invIsThreePhase || fileChannelCount != invChannelCount || rowBytes[6] != invDsp) {
+        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")!";
+        return false;
+    }
+
+    uint8_t expectedLineType = 0;
+    if (lookupExpectedLineType(inv->serial(), expectedLineType) && rowBytes[7] != expectedLineType) {
         outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")!";
         return false;
     }
