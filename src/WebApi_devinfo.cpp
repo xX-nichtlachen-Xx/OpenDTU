@@ -79,6 +79,26 @@ bool lookupExpectedLineType(const uint64_t serial, uint8_t& outLineType)
     return false;
 }
 
+// Serial-number prefixes explicitly allowed to receive a firmware update via
+// this flow at all (see lib/Hoymiles/src/inverters/README.md's per-class
+// serial ranges) -- a coarser gate on top of the channel/dsp/line-type
+// checks above.
+constexpr uint16_t kAllowedFirmwareUpdateSerialPrefixes[] = {
+    0x1121, 0x1141, 0x1161, 0x1124, 0x1400, 0x1125,
+    0x1143, 0x1144, 0x1410, 0x1361, 0x1164, 0x1382,
+};
+
+bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
+{
+    const uint16_t preSerial = static_cast<uint16_t>((serial >> 32) & 0xffff);
+    for (const uint16_t allowed : kAllowedFirmwareUpdateSerialPrefixes) {
+        if (allowed == preSerial) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Extracts the phase/channel information encoded in the trailing "-<N>T" of
 // the hardware-REPORTED model name (DevInfoParser::getHwModelName(), e.g.
 // "HMS-1800-4T" -> 4, "HMT-2250-6T" -> 6), three-phase iff the name starts
@@ -163,6 +183,11 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
                                  String& outReason)
 {
     const String hwModelName = inv->DevInfo()->getHwModelName();
+    if (!isSerialAllowedForFirmwareUpdate(inv->serial())) {
+        outReason = "Firmware update is not supported for this inverter!";
+        return false;
+    }
+
     bool invIsThreePhase = false;
     uint8_t invChannelCount = 0;
     uint8_t invDsp = 0;
@@ -210,7 +235,7 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
 
 bool isFirmwareUpdateSupported(const std::shared_ptr<InverterAbstract>& inv)
 {
-    if (inv == nullptr || inv->DevInfo()->getLastUpdate() == 0) {
+    if (inv == nullptr || inv->DevInfo()->getLastUpdate() == 0 || !isSerialAllowedForFirmwareUpdate(inv->serial())) {
         return false;
     }
     bool isThreePhase = false;
