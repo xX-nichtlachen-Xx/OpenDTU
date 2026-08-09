@@ -362,10 +362,10 @@ void HM_Abstract::enqueueFirmwareRow(const uint8_t* rowData, const uint16_t rowL
         }
     }
 
-    // Push front in reverse so the packets end up in the right order, ahead
-    // of whatever rows were already queued after the one that just failed.
+    // Re-enqueue the retransmitted row packets in reverse so the queue order
+    // matches the original row packet order.
     for (auto it = packets.rbegin(); it != packets.rend(); ++it) {
-        _radio->enqueCommandNext(*it);
+        _radio->enqueCommand(*it);
     }
 }
 

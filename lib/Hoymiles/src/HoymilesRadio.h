@@ -72,18 +72,6 @@ public:
         DEBUG_PRINT("Queue size after: %ld", _commandQueue.size());
     }
 
-    // Jumps the given command to the FRONT of the queue, ahead of anything
-    // already queued -- used to resend a failed firmware-update row before
-    // the packets of subsequent rows that were already enqueued upfront.
-    void enqueCommandNext(std::shared_ptr<CommandAbstract> cmd)
-    {
-        // Called from within a command's own handleResponse(), i.e. before
-        // the framework has popped that (failed) command off the queue --
-        // insert after it, not in front of it, or the framework's pending
-        // pop() would remove this resend instead of the failed command.
-        _commandQueue.insertAfterFront(cmd);
-    }
-
     template <typename T>
     std::shared_ptr<T> prepareCommand(InverterAbstract* inv)
     {
