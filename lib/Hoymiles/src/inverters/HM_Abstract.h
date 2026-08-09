@@ -26,8 +26,10 @@ public:
                                    const size_t rawAsciiLen) override;
     bool getFirmwareUpdateRunning() override;
     void abortFirmwareUpdateRequest() override;
+    void failFirmwareUpdateRequest() override;
     void resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt) override;
     void onFirmwareRowCompleted() override;
+    FirmwareUpdateResult getFirmwareUpdateResult() const override;
     bool supportsPowerDistributionLogic() override;
 
 protected:
@@ -51,6 +53,7 @@ private:
     size_t _fwLineCount = 0;
     size_t _fwNextLineIndex = 0;
     bool _firmwareUpdateAborted = false;
+    FirmwareUpdateResult _firmwareUpdateResult = FirmwareUpdateResult::None;
     std::mutex _pendingFirmwareRowsMutex;
 
     // Scans the source once and fills _fwLineOffsets/_fwLineLengths. Caller

@@ -217,6 +217,7 @@ bool HM_Abstract::sendFirmwareUpdateRequest(const String& littleFsPath,
     }
 
     _firmwareUpdateAborted = false;
+    _firmwareUpdateResult = FirmwareUpdateResult::None;
 
     // Firmware data is transmitted per Intel-Hex "row" (one row per line of
     // the uploaded .hex file, each row being that line's fully hex-decoded
@@ -273,6 +274,7 @@ bool HM_Abstract::enqueueNextFirmwareRow()
             }
             if (result == IntelHex::RowResult::Error) {
                 closeFirmwareSource_unlocked();
+                _firmwareUpdateResult = FirmwareUpdateResult::Failed;
                 return false;
             }
 
@@ -301,7 +303,15 @@ void HM_Abstract::onFirmwareRowCompleted()
     if (_firmwareUpdateAborted) {
         return;
     }
-    enqueueNextFirmwareRow();
+    if (!enqueueNextFirmwareRow()) {
+        // No parked row got enqueued -- either all rows are done (success) or
+        // enqueueNextFirmwareRow() already recorded a decode failure above.
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        if (_firmwareUpdateResult == FirmwareUpdateResult::None) {
+            _firmwareUpdateResult = FirmwareUpdateResult::Success;
+            closeFirmwareSource_unlocked();
+        }
+    }
 }
 
 void HM_Abstract::resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt)
@@ -392,8 +402,25 @@ void HM_Abstract::abortFirmwareUpdateRequest()
     // re-enqueue a fresh packet after we cleared the radio queue.
     {
         std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        _firmwareUpdateResult = FirmwareUpdateResult::Aborted;
         closeFirmwareSource_unlocked();
     }
+}
+
+void HM_Abstract::failFirmwareUpdateRequest()
+{
+    _firmwareUpdateAborted = true;
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        _firmwareUpdateResult = FirmwareUpdateResult::Failed;
+        closeFirmwareSource_unlocked();
+    }
+}
+
+FirmwareUpdateResult HM_Abstract::getFirmwareUpdateResult() const
+{
+    return _firmwareUpdateResult;
 }
 
 bool HM_Abstract::buildFirmwareLineIndex_unlocked()

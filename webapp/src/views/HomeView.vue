@@ -815,6 +815,8 @@ export default defineComponent({
                     this.devInfoLoading = false;
                     if (data.firmware_update_running) {
                         this.startDevInfoPolling(serial);
+                    } else {
+                        this.applyFirmwareUpdateResult(data);
                     }
                 });
 
@@ -876,6 +878,28 @@ export default defineComponent({
                     console.warn('Failed to abort firmware update');
                 });
         },
+        // Shows the pass/fail/aborted outcome once a firmware update has stopped running.
+        applyFirmwareUpdateResult(data: DevInfoStatus) {
+            switch (data.firmware_update_result) {
+                case 'success':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateSuccess');
+                    this.firmwareUpdateAlertType = 'success';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                case 'failed':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateFailed');
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                case 'aborted':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateAborted');
+                    this.firmwareUpdateAlertType = 'warning';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                default:
+                    break;
+            }
+        },
         startDevInfoPolling(serial: string) {
             this.stopDevInfoPolling();
             const generation = ++this.devInfoPollGeneration;
@@ -896,6 +920,7 @@ export default defineComponent({
                             this.devInfoPollHandle = window.setTimeout(poll, 2000);
                         } else {
                             this.devInfoPollHandle = 0;
+                            this.applyFirmwareUpdateResult(data);
                         }
                     })
                     .catch(() => {

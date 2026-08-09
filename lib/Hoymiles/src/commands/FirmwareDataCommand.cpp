@@ -136,7 +136,7 @@ void FirmwareDataCommand::gotTimeout()
     // instead of letting the rest of the pre-enqueued rows keep firing.
     if (_rowData.empty() || _rowData.size() < 4) {
         ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): no resend context, aborting firmware update");
-        _inv->abortFirmwareUpdateRequest();
+        _inv->failFirmwareUpdateRequest();
         return;
     }
 
@@ -145,7 +145,7 @@ void FirmwareDataCommand::gotTimeout()
         _inv->resendFirmwareRow(_rowData.data(), static_cast<uint16_t>(_rowData.size()), _rowAttempt + 1);
     } else {
         ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): max attempts reached, aborting firmware update");
-        _inv->abortFirmwareUpdateRequest();
+        _inv->failFirmwareUpdateRequest();
     }
 }
 

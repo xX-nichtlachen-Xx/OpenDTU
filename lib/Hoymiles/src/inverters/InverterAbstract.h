@@ -29,6 +29,13 @@ enum {
 
 class CommandAbstract;
 
+enum class FirmwareUpdateResult {
+    None,
+    Success,
+    Failed,
+    Aborted
+};
+
 class InverterAbstract {
 public:
     explicit InverterAbstract(HoymilesRadio* radio, const uint64_t serial);
@@ -108,8 +115,11 @@ public:
                                            const size_t rawAsciiLen) = 0;
     virtual bool getFirmwareUpdateRunning();
     virtual void abortFirmwareUpdateRequest();
+    // Called for automatic failures (timeout/max attempts), distinct from a user-triggered abort.
+    virtual void failFirmwareUpdateRequest();
     virtual void resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt);
     virtual void onFirmwareRowCompleted();
+    virtual FirmwareUpdateResult getFirmwareUpdateResult() const;
 
     // This feature will limit the AC output instead of limiting the DC inputs.
     virtual bool supportsPowerDistributionLogic() = 0;

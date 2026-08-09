@@ -99,6 +99,20 @@ bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
     return false;
 }
 
+const char* firmwareUpdateResultToString(const FirmwareUpdateResult result)
+{
+    switch (result) {
+    case FirmwareUpdateResult::Success:
+        return "success";
+    case FirmwareUpdateResult::Failed:
+        return "failed";
+    case FirmwareUpdateResult::Aborted:
+        return "aborted";
+    default:
+        return "none";
+    }
+}
+
 // Extracts the phase/channel information encoded in the trailing "-<N>T" of
 // the hardware-REPORTED model name e.g.
 // "HMS-1800-4T" -> 4, "HMT-2250-6T" -> 6), three-phase iff the name starts
@@ -324,6 +338,7 @@ void WebApiDevInfoClass::onDevInfoStatus(AsyncWebServerRequest* request)
         root["firmware_update_supported"] = isFirmwareUpdateSupported(inv);
         root["firmware_update_variant"] = getFirmwareVariant(inv);
         root["firmware_update_running"] = inv->getFirmwareUpdateRunning();
+        root["firmware_update_result"] = firmwareUpdateResultToString(inv->getFirmwareUpdateResult());
     }
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);

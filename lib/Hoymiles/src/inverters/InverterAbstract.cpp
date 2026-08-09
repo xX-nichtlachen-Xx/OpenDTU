@@ -159,6 +159,15 @@ void InverterAbstract::abortFirmwareUpdateRequest()
 {
 }
 
+void InverterAbstract::failFirmwareUpdateRequest()
+{
+}
+
+FirmwareUpdateResult InverterAbstract::getFirmwareUpdateResult() const
+{
+    return FirmwareUpdateResult::None;
+}
+
 void InverterAbstract::resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt)
 {
     (void)rowData;
