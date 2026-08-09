@@ -119,16 +119,17 @@ bool FirmwareDataCommand::handleResponse(const fragment_t fragment[], const uint
 
 void FirmwareDataCommand::gotTimeout()
 {
-    ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): is empty %d, size %d, _rowData[3] = 0x%02X", _rowData.empty(), static_cast<int>(_rowData.size()), _rowData.size() >= 4 ? _rowData[3] : 0);
-
     // Intermediate chunks (nub without 0x80) are fire-and-forget -- no ack
     // is expected from the inverter, so a "timeout" here just means the
     // packet was sent, no ack came (as designed). Move on silently, don't
-    // resend the row, don't abort. The queue's pop() will advance to the
-    // next chunk.
+    // resend the row, don't abort, and don't log a warning for an outcome
+    // that happens on every single one of these by design. The queue's
+    // pop() will advance to the next chunk.
     if ((_payload[9] & 0x80) == 0) {
         return;
     }
+
+    ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): is empty %d, size %d, _rowData[3] = 0x%02X", _rowData.empty(), static_cast<int>(_rowData.size()), _rowData.size() >= 4 ? _rowData[3] : 0);
 
     // Last-of-row packet but no per-row resend context (missing CRC info or
     // non-data record type) -- can't safely retry, abort the whole update
