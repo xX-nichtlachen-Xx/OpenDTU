@@ -120,11 +120,6 @@ bool FirmwareDataCommand::handleResponse(const fragment_t fragment[], const uint
 void FirmwareDataCommand::gotTimeout()
 {
     // Intermediate chunks (nub without 0x80) are fire-and-forget -- no ack
-    // is expected from the inverter, so a "timeout" here just means the
-    // packet was sent, no ack came (as designed). Move on silently, don't
-    // resend the row, don't abort, and don't log a warning for an outcome
-    // that happens on every single one of these by design. The queue's
-    // pop() will advance to the next chunk.
     if ((_payload[9] & 0x80) == 0) {
         return;
     }

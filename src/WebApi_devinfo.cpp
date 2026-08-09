@@ -3,6 +3,7 @@
  * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "WebApi_devinfo.h"
+#include "RestartHelper.h"
 #include "WebApi.h"
 #include "WebApi_errors.h"
 #include "WebApi_file.h"
@@ -146,7 +147,7 @@ bool lookupFirmwareRowChannelInfo(const uint8_t channelCode, const uint8_t dsp, 
     return false;
 }
 
-// Reads just the first line (up to '\n', CR tolerated) of the firmware
+// Reads just the first line (up to '\n') of the firmware
 // source into `out`; `out` is NOT NUL-terminated, see outLen.
 bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const size_t rawAsciiLen, char* out, const size_t maxLen, size_t& outLen)
 {
@@ -421,8 +422,14 @@ void WebApiDevInfoClass::onFirmwareUpdateAbort(AsyncWebServerRequest* request)
     inv->abortFirmwareUpdateRequest();
 
     retMsg["type"] = "success";
-    retMsg["message"] = "Update aborted!";
+    retMsg["message"] = "Update aborted, restarting device...";
     retMsg["code"] = WebApiError::GenericSuccess;
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+
+    // A clean in-flight abort would have to safely unwind whatever RF frame
+    // is currently mid-transfer without touching the queue entry the radio
+    // task itself may still be executing -- restarting sidesteps that
+    // entirely and guarantees the transfer actually stops.
+    RestartHelper.triggerRestart();
 }

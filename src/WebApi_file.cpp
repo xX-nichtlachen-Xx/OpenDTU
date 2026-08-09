@@ -15,6 +15,8 @@
 #include <cstring>
 
 namespace {
+constexpr size_t MAX_FIRMWARE_UPLOAD_SIZE = 800 * 1024;
+
 struct PsramFirmwareUploadBuffer {
     uint8_t* data = nullptr;
     size_t size = 0;
@@ -88,6 +90,10 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& v
             g_psramFirmwareUploadBuffer.variant = variant;
         }
         return true;
+    }
+
+    if (g_psramFirmwareUploadBuffer.size + len > MAX_FIRMWARE_UPLOAD_SIZE) {
+        return false;
     }
 
     if (g_psramFirmwareUploadBuffer.capacity < g_psramFirmwareUploadBuffer.size + len) {
@@ -360,6 +366,9 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         if (usePsram) {
             String variant = getFirmwareUploadVariant();
             if (!writeFirmwareUploadToPsram(data, len, variant)) {
+                // Don't leave a partial image behind for a later request to
+                // mistake for a complete upload.
+                clearFirmwareUploadFromPsram();
                 request->send(500);
                 return;
             }
@@ -367,6 +376,13 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
             // stream the incoming chunk to the opened file
             request->_tempFile.write(data, len);
         }
+    }
+
+    if (final && usePsram) {
+        // Only reachable once every chunk, including this last one, was
+        // written successfully -- onFileUploadFinish relies on this instead
+        // of re-deriving success from the buffer/variant state.
+        request->setAttribute("upload_psram_complete", true);
     }
 
     if (final && !usePsram) {
@@ -395,9 +411,7 @@ void WebApiFileClass::onFileUploadFinish(AsyncWebServerRequest* request)
         const String fileParam = request->getParam("file")->value();
         const String name = normalizeUploadPath(fileParam);
         if (name.startsWith("/firmware/")) {
-            size_t uploadedLen = 0;
-            const uint8_t* uploadedData = peekFirmwareUploadInPsram(uploadedLen);
-            uploadSucceeded = uploadedData != nullptr && uploadedLen > 0 && !getFirmwareUploadVariant().isEmpty();
+            uploadSucceeded = request->getAttribute("upload_psram_complete", false);
         }
     }
 

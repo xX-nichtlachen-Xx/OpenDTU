@@ -356,6 +356,10 @@ export default defineComponent({
             }
 
             const request = new XMLHttpRequest();
+            const onTransportFailure = () => {
+                this.firmwareUploadError = this.$t('fileadmin.FirmwareUploadError');
+            };
+
             request.addEventListener('load', () => {
                 if (request.status === 200) {
                     this.firmwareUploadSuccess = true;
@@ -363,6 +367,10 @@ export default defineComponent({
                 } else {
                     this.firmwareUploadError = request.responseText || this.$t('fileadmin.FirmwareUploadError');
                 }
+            });
+            request.addEventListener('error', onTransportFailure);
+            request.addEventListener('abort', onTransportFailure);
+            request.addEventListener('loadend', () => {
                 this.firmwareUploading = false;
             });
             request.upload.addEventListener('progress', (e) => {
@@ -376,8 +384,7 @@ export default defineComponent({
             authHeader().forEach((value, key) => {
                 request.setRequestHeader(key, value);
             });
-            request.send(formData);
-        },
+            request.send(formData);        },
         onUpload() {
             this.uploading = true;
             const target = this.$refs.file as HTMLInputElement; //  event.target as HTMLInputElement;
