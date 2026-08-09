@@ -296,9 +296,6 @@ void WebApiDevInfoClass::init(AsyncWebServer& server, Scheduler& scheduler)
     using std::placeholders::_1;
 
     server.on("/api/devinfo/status", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onDevInfoStatus, this, _1)));
-    // Explicit exact match: the default (plain-string) BackwardCompatible
-    // matcher also matches "<uri>/*", which would otherwise swallow
-    // "/api/devinfo/update/abort" requests into this handler instead.
     server.on(AsyncURIMatcher::exact("/api/devinfo/update"), HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateStart, this, _1)));
     server.on("/api/devinfo/update/abort", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateAbort, this, _1)));
 }

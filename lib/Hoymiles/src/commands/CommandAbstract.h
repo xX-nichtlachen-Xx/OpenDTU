@@ -68,7 +68,6 @@ public:
     virtual bool areSameParameter(CommandAbstract* other);
 
 protected:
-
     uint8_t _payload[RF_LEN];
     uint8_t _payload_size;
     uint32_t _timeout;
