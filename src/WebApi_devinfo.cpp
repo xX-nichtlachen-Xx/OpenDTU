@@ -100,7 +100,7 @@ bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
 }
 
 // Extracts the phase/channel information encoded in the trailing "-<N>T" of
-// the hardware-REPORTED model name (DevInfoParser::getHwModelName(), e.g.
+// the hardware-REPORTED model name e.g.
 // "HMS-1800-4T" -> 4, "HMT-2250-6T" -> 6), three-phase iff the name starts
 // with "HMT-". Returns false if no such suffix is found (e.g. HERF-* names).
 // `outDsp` follows the row's raw encoding (0x00/0x10): HMS models use 0x10,
@@ -182,7 +182,7 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
                                  const size_t rawAsciiLen,
                                  String& outReason)
 {
-    const String hwModelName = inv->DevInfo()->getHwModelName();
+    const String hwModelName = inv->typeName();
     if (!isSerialAllowedForFirmwareUpdate(inv->serial())) {
         outReason = "Firmware update is not supported for this inverter!";
         return false;
@@ -235,17 +235,19 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
 
 bool isFirmwareUpdateSupported(const std::shared_ptr<InverterAbstract>& inv)
 {
-    if (inv == nullptr || inv->DevInfo()->getLastUpdate() == 0 || !isSerialAllowedForFirmwareUpdate(inv->serial())) {
+    if (inv == nullptr || !isSerialAllowedForFirmwareUpdate(inv->serial())) {
         return false;
     }
+    // typeName() is derived from the serial alone, so it's known immediately
+    // (unlike the DevInfo hw_model_name, which requires a device-info poll).
     bool isThreePhase = false;
     uint8_t channelCount = 0;
     uint8_t dsp = 0;
-    return parseHwModelChannelInfo(inv->DevInfo()->getHwModelName(), isThreePhase, channelCount, dsp);
+    return parseHwModelChannelInfo(inv->typeName(), isThreePhase, channelCount, dsp);
 }
 
-// Human-readable channel descriptor derived from the hardware-reported model
-// name, purely informational (the actual upload no longer needs a variant
+// Human-readable channel descriptor derived from the serial-based type name,
+// purely informational (the actual upload no longer needs a variant
 // selection -- see firmwareFileMatchesInverter()).
 String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
 {
@@ -255,7 +257,7 @@ String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
     bool isThreePhase = false;
     uint8_t channelCount = 0;
     uint8_t dsp = 0;
-    parseHwModelChannelInfo(inv->DevInfo()->getHwModelName(), isThreePhase, channelCount, dsp);
+    parseHwModelChannelInfo(inv->typeName(), isThreePhase, channelCount, dsp);
     return String(static_cast<unsigned int>(channelCount)) + "in1";
 }
 
