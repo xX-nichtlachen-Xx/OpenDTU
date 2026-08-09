@@ -7,7 +7,6 @@ If the update aborts or the inverter becomes unresponsive after flashing, perfor
 Firmware files are located in: ./Firmware
 
 PSRAM needed for files!
-To start the update, the inverter must be read out once by the DTU.
 Then it is recommended to disable all NRF24/Inverter traffic during the update.
 
 Upload Firmware File.
