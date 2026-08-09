@@ -599,6 +599,7 @@ export default defineComponent({
             devInfoList: {} as DevInfoStatus,
             devInfoLoading: true,
             devInfoPollHandle: 0,
+            devInfoPollGeneration: 0,
             gridProfileView: {} as bootstrap.Modal,
             gridProfileList: {} as GridProfileStatus,
             gridProfileRawList: {} as GridProfileRawdata,
@@ -844,38 +845,65 @@ export default defineComponent({
                 });
         },
         onAbortFirmwareUpdate(serial: string) {
-            this.stopDevInfoPolling();
-            if (this.devInfoList) {
-                this.devInfoList.firmware_update_running = false;
-                this.devInfoList.serial = serial;
-            }
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
 
+            // Keep polling running; devInfoList.firmware_update_running is only
+            // cleared once /api/devinfo/status confirms the update actually stopped.
             fetch('/api/devinfo/update/abort?inv=' + serial, {
                 method: 'POST',
                 headers: authHeader(),
             })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type != 'success') {
+                        this.firmwareUpdateAlertMessage = response.message || 'Firmware update could not be aborted.';
+                        this.firmwareUpdateAlertType = 'danger';
+                        this.showFirmwareUpdateAlert = true;
+                    }
+                })
                 .catch(() => {
+                    this.firmwareUpdateAlertMessage = 'Firmware update could not be aborted.';
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
                     console.warn('Failed to abort firmware update');
                 });
         },
         startDevInfoPolling(serial: string) {
             this.stopDevInfoPolling();
-            this.devInfoPollHandle = window.setInterval(() => {
+            const generation = ++this.devInfoPollGeneration;
+            // Re-scheduled only once the previous request settles, so requests
+            // never overlap; a response is applied only if this poll session
+            // (generation) hasn't since been stopped/restarted.
+            const poll = () => {
                 fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
                     .then((response) => handleResponse(response, this.$emitter, this.$router))
                     .then((data) => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
                         this.devInfoList = data;
                         this.devInfoList.serial = serial;
-                        if (!data.firmware_update_running) {
-                            this.stopDevInfoPolling();
+                        if (data.firmware_update_running) {
+                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        } else {
+                            this.devInfoPollHandle = 0;
                         }
+                    })
+                    .catch(() => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        this.devInfoPollHandle = window.setTimeout(poll, 2000);
                     });
-            }, 2000);
+            };
+            this.devInfoPollHandle = window.setTimeout(poll, 2000);
         },
         stopDevInfoPolling() {
+            this.devInfoPollGeneration++;
             if (this.devInfoPollHandle) {
-                clearInterval(this.devInfoPollHandle);
+                clearTimeout(this.devInfoPollHandle);
                 this.devInfoPollHandle = 0;
             }
         },
