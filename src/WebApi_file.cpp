@@ -323,14 +323,14 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         const String fileParam = request->getParam("file")->value();
         const String name = normalizeUploadPath(fileParam);
         const bool usePsram = name.startsWith("/firmware/");
+        request->setAttribute("upload_use_psram", usePsram);
 
         if (usePsram) {
             clearFirmwareUploadFromPsram();
-            const String uploadPath = normalizeUploadPath(fileParam);
-            const int slashPos = uploadPath.lastIndexOf('/');
-            const int dotPos = uploadPath.lastIndexOf('.');
+            const int slashPos = name.lastIndexOf('/');
+            const int dotPos = name.lastIndexOf('.');
             if (slashPos >= 0 && dotPos > slashPos) {
-                setFirmwareUploadVariant(uploadPath.substring(slashPos + 1, dotPos));
+                setFirmwareUploadVariant(name.substring(slashPos + 1, dotPos));
             }
             // NOTE: do NOT return here -- this first callback invocation
             // already carries the first (and for small files, the only)
@@ -351,8 +351,13 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         }
     }
 
+    // Cached as a request attribute on the first (!index) callback above, so
+    // later chunk/finalization calls for the same upload don't need to
+    // re-derive it from the "file" param each time.
+    const bool usePsram = request->getAttribute("upload_use_psram", false);
+
     if (len) {
-        if (request->hasParam("file") && normalizeUploadPath(request->getParam("file")->value()).startsWith("/firmware/")) {
+        if (usePsram) {
             String variant = getFirmwareUploadVariant();
             if (!writeFirmwareUploadToPsram(data, len, variant)) {
                 request->send(500);
@@ -364,7 +369,7 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         }
     }
 
-    if (final && !normalizeUploadPath(request->getParam("file")->value()).startsWith("/firmware/")) {
+    if (final && !usePsram) {
         // close the file handle as the upload is now done
         request->_tempFile.close();
     }

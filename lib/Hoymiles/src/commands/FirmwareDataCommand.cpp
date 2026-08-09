@@ -97,11 +97,13 @@ bool FirmwareDataCommand::handleResponse(const fragment_t fragment[], const uint
         return false;
     }
     //ESP_LOGI(TAG, "FirmwareDataCommand::handleResponse(): _rowData.empty = %d, max_fragment_id = %d", _rowData.empty(), max_fragment_id);
-    if (_rowData.empty() || max_fragment_id == 0) {
-        ESP_LOGI(TAG, "FirmwareDataCommand::gotTimeout(): not the last-of-row packet -- no per-row ack to verify");
+    if (_rowData.empty()) {
+        ESP_LOGV(TAG, "FirmwareDataCommand::handleResponse(): not the last-of-row packet -- no per-row ack to verify");
         return true; // not the last-of-row packet -- no per-row ack to verify
     }
-
+    if (max_fragment_id == 0) {
+        return false; // last-of-row packet without any fragment -- let the retry path run
+    }
     // A successful row ack echoes this row's own header bytes (len, addr
     // hi/lo, record type); a failed CRC check on the inverter side instead
     // comes back as all-zero data -- gotTimeout() below resends the row.

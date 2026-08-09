@@ -369,7 +369,8 @@
                     devInfoLoading ||
                     !devInfoList.serial ||
                     !devInfoList.firmware_update_supported ||
-                    devInfoList.firmware_update_running
+                    devInfoList.firmware_update_running ||
+                    firmwareUpdateStartPending
                 "
                 @click="onStartFirmwareUpdate(devInfoList.serial)"
             >
@@ -631,6 +632,7 @@ export default defineComponent({
             firmwareUpdateAlertMessage: '',
             firmwareUpdateAlertType: 'info',
             showFirmwareUpdateAlert: false,
+            firmwareUpdateStartPending: false,
 
             isWebsocketConnected: false,
         };
@@ -822,6 +824,7 @@ export default defineComponent({
             this.firmwareUpdateAlertMessage = '';
             this.firmwareUpdateAlertType = 'info';
             this.showFirmwareUpdateAlert = false;
+            this.firmwareUpdateStartPending = true;
 
             fetch('/api/devinfo/update?inv=' + serial, {
                 method: 'POST',
@@ -830,14 +833,17 @@ export default defineComponent({
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((response) => {
                     if (response.type == 'success') {
+                        // firmwareUpdateStartPending is cleared once the poll below gets its first response.
                         this.startDevInfoPolling(serial);
                     } else {
+                        this.firmwareUpdateStartPending = false;
                         this.firmwareUpdateAlertMessage = response.message || 'Firmware update could not be started.';
                         this.firmwareUpdateAlertType = 'danger';
                         this.showFirmwareUpdateAlert = true;
                     }
                 })
                 .catch(() => {
+                    this.firmwareUpdateStartPending = false;
                     this.firmwareUpdateAlertMessage = 'Firmware update could not be started.';
                     this.firmwareUpdateAlertType = 'danger';
                     this.showFirmwareUpdateAlert = true;
@@ -883,6 +889,7 @@ export default defineComponent({
                         if (generation !== this.devInfoPollGeneration) {
                             return;
                         }
+                        this.firmwareUpdateStartPending = false;
                         this.devInfoList = data;
                         this.devInfoList.serial = serial;
                         if (data.firmware_update_running) {
