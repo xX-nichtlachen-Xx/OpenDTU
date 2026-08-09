@@ -394,10 +394,6 @@ void HM_Abstract::abortFirmwareUpdateRequest()
         std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
         closeFirmwareSource_unlocked();
     }
-
-    // Stop the whole inverter command queue so the abort does not leave any
-    // follow-up firmware or housekeeping packets queued behind it.
-    _radio->removeCommands(this);
 }
 
 bool HM_Abstract::buildFirmwareLineIndex_unlocked()

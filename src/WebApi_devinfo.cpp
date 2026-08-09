@@ -3,7 +3,6 @@
  * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "WebApi_devinfo.h"
-#include "RestartHelper.h"
 #include "WebApi.h"
 #include "WebApi_errors.h"
 #include "WebApi_file.h"
@@ -297,7 +296,10 @@ void WebApiDevInfoClass::init(AsyncWebServer& server, Scheduler& scheduler)
     using std::placeholders::_1;
 
     server.on("/api/devinfo/status", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onDevInfoStatus, this, _1)));
-    server.on("/api/devinfo/update", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateStart, this, _1)));
+    // Explicit exact match: the default (plain-string) BackwardCompatible
+    // matcher also matches "<uri>/*", which would otherwise swallow
+    // "/api/devinfo/update/abort" requests into this handler instead.
+    server.on(AsyncURIMatcher::exact("/api/devinfo/update"), HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateStart, this, _1)));
     server.on("/api/devinfo/update/abort", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateAbort, this, _1)));
 }
 
@@ -422,14 +424,8 @@ void WebApiDevInfoClass::onFirmwareUpdateAbort(AsyncWebServerRequest* request)
     inv->abortFirmwareUpdateRequest();
 
     retMsg["type"] = "success";
-    retMsg["message"] = "Update aborted, restarting device...";
+    retMsg["message"] = "Update aborted!";
     retMsg["code"] = WebApiError::GenericSuccess;
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
-
-    // A clean in-flight abort would have to safely unwind whatever RF frame
-    // is currently mid-transfer without touching the queue entry the radio
-    // task itself may still be executing -- restarting sidesteps that
-    // entirely and guarantees the transfer actually stops.
-    RestartHelper.triggerRestart();
 }
