@@ -29,7 +29,7 @@ packet; only the LAST packet has bit 0x80 OR'd into it.
 static const char* TAG = "hoymiles";
 
 #define MAX_PAYLOAD_SIZE 16
-#define MAX_ATTEMPTS_PER_LINE 5
+#define MAX_ATTEMPTS_PER_LINE 10
 
 FirmwareDataCommand::FirmwareDataCommand(InverterAbstract* inv, const uint64_t router_address)
     : FirmwareCommand(inv, router_address)
@@ -91,6 +91,13 @@ uint8_t FirmwareDataCommand::getMaxResendCount() const
     return MAX_ATTEMPTS_PER_LINE;
 }
 
+bool FirmwareDataCommand::expectsResponse() const
+{
+    // Intermediate chunks are fire-and-forget and do not require a response
+    // fragment check. Only the final packet of a row expects a row-ack.
+    return (_payload[9] & 0x80) != 0;
+}
+
 bool FirmwareDataCommand::handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id)
 {   
     if (!FirmwareCommand::handleResponse(fragment, max_fragment_id)) {
@@ -124,8 +131,6 @@ void FirmwareDataCommand::gotTimeout()
         return;
     }
 
-    ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): is empty %d, size %d, _rowData[3] = 0x%02X", _rowData.empty(), static_cast<int>(_rowData.size()), _rowData.size() >= 4 ? _rowData[3] : 0);
-
     // Last-of-row packet but no per-row resend context (missing CRC info or
     // non-data record type) -- can't safely retry, abort the whole update
     // instead of letting the rest of the pre-enqueued rows keep firing.
@@ -136,10 +141,10 @@ void FirmwareDataCommand::gotTimeout()
     }
 
     if (_rowAttempt < MAX_ATTEMPTS_PER_LINE) {
-        ESP_LOGI(TAG, "FirmwareDataCommand::gotTimeout(): resending row attempt %d", _rowAttempt + 1);
+        ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): resending row attempt %d", _rowAttempt + 1);
         _inv->resendFirmwareRow(_rowData.data(), static_cast<uint16_t>(_rowData.size()), _rowAttempt + 1);
     } else {
-        ESP_LOGI(TAG, "FirmwareDataCommand::gotTimeout(): max attempts reached, aborting firmware update");
+        ESP_LOGW(TAG, "FirmwareDataCommand::gotTimeout(): max attempts reached, aborting firmware update");
         _inv->abortFirmwareUpdateRequest();
     }
 }

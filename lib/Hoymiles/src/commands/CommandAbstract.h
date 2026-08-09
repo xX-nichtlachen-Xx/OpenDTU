@@ -59,6 +59,10 @@ public:
     // Sets the amount how often a missing fragment is re-requested if it was not available
     virtual uint8_t getMaxRetransmitCount() const;
 
+    // Some commands, such as intermediate firmware-update packets, are
+    // fire-and-forget and should not use the generic fragment-retransmit path.
+    virtual bool expectsResponse() const { return true; }
+
     // Returns whether multiple instances of this command are allowed in the command queue.
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
 

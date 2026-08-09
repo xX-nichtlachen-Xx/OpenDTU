@@ -24,6 +24,7 @@ public:
     // wasting time waiting out the default 4 resend attempts per packet.
     uint8_t getMaxResendCount() const override;
 
+    bool expectsResponse() const override;
     bool isFirmwareDataCommand() const override { return true; }
 
     bool handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id) override;

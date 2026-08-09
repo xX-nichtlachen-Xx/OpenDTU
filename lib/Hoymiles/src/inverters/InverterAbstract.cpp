@@ -260,6 +260,12 @@ void InverterAbstract::addRxFragment(const uint8_t fragment[], const uint8_t len
 // Returns Zero on Success or the Fragment ID for retransmit or error code
 uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
 {
+    // Intermediate firmware-update packets are fire-and-forget and do not
+    // require fragment-retransmit handling at all.
+    if (!cmd.expectsResponse()) {
+        return FRAGMENT_OK;
+    }
+
     // All missing
     if (_rxFragmentLastPacketId == 0) {
         ESP_LOGW(TAG, "All missing");
