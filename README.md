@@ -14,9 +14,9 @@ Start Update.
 
 [Manual](https://github.com/tbnobody/OpenDTU/discussions/3168/).
 
-Contained Fimware files (./Firmware):
+Fimware files are stored in (./Firmware)-
 
-
+Serial/Type Mapping
 |  ?  | Phase | Input-Type | DSP | ? | ? | MI/B | Version (hex/dec)   | CRC |Serial|   Info            |
 |-----|-------|-------------|-----|---|---|------|--------------------|-----|------|-------------------|
 | 0   | 1     | 0           | 0   | 0 | 0 | 0    | 2721 / 1.0.17      | 81  | 1121 | HM 1T MI |
