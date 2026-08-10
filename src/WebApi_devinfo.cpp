@@ -26,72 +26,54 @@ bool isAsciiDigit(const char c)
 // Firmware/*.hex: after IntelHex::decodeRow() strips the line's own trailing
 // checksum byte, the row is exactly 10 bytes:
 //   [0]=LL(0x06)  [1..2]=address(0x0000)  [3]=record type(0x11)
-//   [4]=const 0x10  [5]=channel code (0x10=1T 0x11=2T 0x12=4T 0x13=6T)
-//   [6]=DSP flag (0x00 or 0x10)  [7]=line type (0=MI, 1=B, see
-//   kFirmwareLineTypeRules)  [8..9]=fw version (BE)
-// 0x13/6T is the only channel count that exists exclusively on three-phase
-// (HMT) hardware -- no single-phase HM/HMS 6T model exists, so it's an
-// unambiguous signal. HMT *-4T is NOT covered here: 4T also exists as a
-// single-phase HM/HMS model with the same channel code, and no real capture
-// is available yet to tell the two apart, so it intentionally still fails
-// to match (see firmwareFileMatchesInverter()).
-struct FirmwareRowRule {
-    uint8_t channelCode;
-    uint8_t dsp;
-    uint8_t channelCount;
-};
-
-constexpr FirmwareRowRule kFirmwareRowRules[] = {
-    // channelCode, dsp, channelCount
-    { 0x10, 0x00, 1 }, // HM/HMS *-1T
-    { 0x11, 0x00, 2 }, // HM *-2T
-    { 0x11, 0x10, 2 }, // HMS *-2T
-    { 0x12, 0x00, 4 }, // HM *-4T
-    { 0x12, 0x10, 4 }, // HMS *-4T
-    { 0x13, 0x00, 6 }, // HMT *-6T
-};
-
-// Inverter serial-number prefix ("preSerial", top 16 bits of the upper
-// 32-bit half -- see e.g. HMS_1CH::isValidSerial()) mapped to the expected
-// value of the row's line-type byte [7]. Disambiguates sub-variants that
-// share the same channelCode/dsp (e.g. HMS_1CH vs HMS_1CHv2, both 0x10/0x00)
-// which hw_model_name alone doesn't always reveal.
-struct FirmwareLineTypeRule {
+//   [4]=const 0x10  [5]=channel code (0x10 | inputType, see
+//   kFirmwareSerialRules)  [6]=DSP flag  [7]=line type (0=MI, 1=B)
+//   [8..9]=fw version (BE)
+// Per-inverter values below (phase/inputType/dsp/lineType) come straight
+// from captured firmware identity rows, keyed by the inverter serial-number
+// prefix ("preSerial", top 16 bits of the upper 32-bit half -- see e.g.
+// HMS_1CH::isValidSerial()), since hw_model_name alone doesn't always
+// disambiguate sub-variants sharing the same channel/dsp encoding.
+// inputType 5/6 (HMT *-4T) have no confirmed firmware capture yet, so they
+// intentionally never match a real row (see firmwareFileMatchesInverter()).
+struct FirmwareSerialRule {
     uint16_t preSerial;
-    uint8_t lineType;
+    uint8_t phase; // 1 = single-phase (HM/HMS/HME1), 3 = three-phase (HMT)
+    uint8_t inputType; // row byte [5] low nibble
+    uint8_t dsp; // row byte [6]
+    uint8_t lineType; // row byte [7]: 0 = MI, 1 = B
 };
 
-constexpr FirmwareLineTypeRule kFirmwareLineTypeRules[] = {
-    { 0x1121, 0 }, // MI
-    { 0x1124, 0 }, // MI
-    { 0x1125, 1 }, // B
-    { 0x1141, 0 }, // MI
-    { 0x1143, 1 }, // B
-    { 0x1144, 1 }, // B
-    { 0x1161, 0 }, // MI
-    { 0x1162, 0 }, // MI
-    { 0x1164, 0 }, // MI
-    { 0x1165, 0 }, // MI
-    { 0x1166, 1 }, // B
-    { 0x1361, 0 }, // MI
-    { 0x1362, 0 }, // MI
-    { 0x1382, 0 }, // MI
-    { 0x1400, 1 }, // B
-    { 0x1410, 1 }, // B
-    { 0x1520, 0 }, // MI
-    { 0x1620, 1 }, // B
+constexpr FirmwareSerialRule kFirmwareSerialRules[] = {
+    // preSerial, phase, inputType, dsp, lineType
+    { 0x1121, 1, 0, 0, 0 }, // HM 1T MI
+    { 0x1124, 1, 0, 0, 0 }, // HMS 1T MI
+    { 0x1125, 1, 0, 0, 1 }, // HMS 1T B
+    { 0x1141, 1, 1, 0, 0 }, // HM 2T MI
+    { 0x1143, 1, 1, 1, 1 }, // HMS 2T B
+    { 0x1144, 1, 1, 1, 1 }, // HMS 2T B
+    { 0x1410, 1, 1, 1, 1 }, // HMS 2T B
+    { 0x1161, 1, 2, 0, 0 }, // HM 4T MI
+    { 0x1162, 4, 2, 0, 0 }, // HME1 4T MI
+    { 0x1164, 1, 2, 1, 0 }, // HMS 4T MI
+    { 0x1165, 1, 2, 2, 0 }, // HMS 4T MI (2000B_T)
+    { 0x1166, 1, 2, 1, 1 }, // HMS 4T B (2000C_B)
+    { 0x1620, 1, 2, 3, 1 }, // HMS 4T B (WB_B)
+    { 0x1361, 3, 5, 0, 0 }, // HMT 4T MI
+    { 0x1362, 3, 6, 0, 0 }, // HMT 4T MI (NA R)
+    { 0x1382, 3, 3, 0, 0 }, // HMT 6T MI
+    { 0x1520, 1, 6, 0, 0 }, // MIT-5000 MI
 };
 
-bool lookupExpectedLineType(const uint64_t serial, uint8_t& outLineType)
+const FirmwareSerialRule* lookupFirmwareSerialRule(const uint64_t serial)
 {
     const uint16_t preSerial = static_cast<uint16_t>((serial >> 32) & 0xffff);
-    for (const auto& rule : kFirmwareLineTypeRules) {
+    for (const auto& rule : kFirmwareSerialRules) {
         if (rule.preSerial == preSerial) {
-            outLineType = rule.lineType;
-            return true;
+            return &rule;
         }
     }
-    return false;
+    return nullptr;
 }
 
 // Serial-number prefixes explicitly allowed to receive a firmware update via
@@ -100,7 +82,7 @@ bool lookupExpectedLineType(const uint64_t serial, uint8_t& outLineType)
 // checks above.
 constexpr uint16_t kAllowedFirmwareUpdateSerialPrefixes[] = {
     0x1121, 0x1141, 0x1161, 0x1124, 0x1400, 0x1125,
-    0x1143, 0x1144, 0x1410, 0x1361, 0x1164, 0x1382,
+    0x1143, 0x1144, 0x1410, 0x1361, 0x1362, 0x1164, 0x1382,
 };
 
 bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
@@ -164,17 +146,6 @@ bool parseHwModelChannelInfo(const String& hwModelName, bool& outIsThreePhase, u
     return true;
 }
 
-bool lookupFirmwareRowChannelInfo(const uint8_t channelCode, const uint8_t dsp, uint8_t& outChannelCount)
-{
-    for (const auto& rule : kFirmwareRowRules) {
-        if (rule.channelCode == channelCode && rule.dsp == dsp) {
-            outChannelCount = rule.channelCount;
-            return true;
-        }
-    }
-    return false;
-}
-
 // Reads just the first line (up to '\n') of the firmware
 // source into `out`; `out` is NOT NUL-terminated, see outLen.
 bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const size_t rawAsciiLen, char* out, const size_t maxLen, size_t& outLen)
@@ -203,8 +174,8 @@ bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const 
 }
 
 // Parses the firmware source's first line and reports whether it targets the
-// same hardware the inverter actually reported (both phase count and channel
-// count must agree). Sets `outReason` on any failure (shown to the user).
+// same hardware the inverter actually reported (looked up by serial via
+// kFirmwareSerialRules). Sets `outReason` on any failure (shown to the user).
 bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
                                  const String& fsPath,
                                  const uint8_t* rawAscii,
@@ -217,11 +188,14 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
         return false;
     }
 
-    bool invIsThreePhase = false;
-    uint8_t invChannelCount = 0;
-    uint8_t invDsp = 0;
-    if (hwModelName.isEmpty() || !parseHwModelChannelInfo(hwModelName, invIsThreePhase, invChannelCount, invDsp)) {
+    if (hwModelName.isEmpty()) {
         outReason = "Inverter hardware model is not known yet (no device info received)!";
+        return false;
+    }
+
+    const FirmwareSerialRule* rule = lookupFirmwareSerialRule(inv->serial());
+    if (rule == nullptr) {
+        outReason = "Firmware update is not supported for this inverter!";
         return false;
     }
 
@@ -234,28 +208,16 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
 
     uint8_t rowBytes[32];
     size_t rowLen = 0;
-    if (IntelHex::decodeRow(lineAscii, lineLen, rowBytes, rowLen) != IntelHex::RowResult::Data || rowLen < 7) {
+    if (IntelHex::decodeRow(lineAscii, lineLen, rowBytes, rowLen) != IntelHex::RowResult::Data || rowLen < 8) {
         outReason = "Firmware file has an unrecognized identity row!";
         return false;
     }
 
-    uint8_t fileChannelCount = 0;
-    if (!lookupFirmwareRowChannelInfo(rowBytes[5], rowBytes[6], fileChannelCount)) {
-        outReason = "Firmware file target hardware could not be identified!";
-        return false;
-    }
-
-    // 6T is the only channel count that's exclusively three-phase (HMT) --
-    // everything else in kFirmwareRowRules is single-phase (HM/HMS).
-    const bool fileIsThreePhase = (fileChannelCount == 6);
-    if (fileIsThreePhase != invIsThreePhase || fileChannelCount != invChannelCount || rowBytes[6] != invDsp) {
-        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")!";
-        return false;
-    }
-
-    uint8_t expectedLineType = 0;
-    if (lookupExpectedLineType(inv->serial(), expectedLineType) && rowBytes[7] != expectedLineType) {
-        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")!";
+    const uint8_t expectedChannelCode = static_cast<uint8_t>(0x10 | rule->inputType);
+    if (rowBytes[5] != expectedChannelCode || rowBytes[6] != rule->dsp || rowBytes[7] != rule->lineType) {
+        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")! Expected channel/dsp/type "
+            + String(expectedChannelCode, HEX) + "/" + String(rule->dsp, HEX) + "/" + String(rule->lineType)
+            + ", got " + String(rowBytes[5], HEX) + "/" + String(rowBytes[6], HEX) + "/" + String(rowBytes[7]) + "!";
         return false;
     }
 
