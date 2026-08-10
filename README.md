@@ -16,17 +16,28 @@ Start Update.
 
 Contained Fimware files (./Firmware):
 
-HM_1T_1_0_17.hex
-HM_1T_1_1_0.hex
-HM_2T_1_1_2.hex
-HM_4T_1_1_3.hex
 
-HMS_1T_2_0_2.hex
-HMS_2T_1_3_9.hex
-HMS_4T_2_0_4.hex
-
-HMT_4T_1_1_5.hex
-HMT_6T_1_2_27.hex
+|  ?  | Phase | Input-Type | DSP | ? | ? | MI/B | Version (hex/dec)   | CRC |Serial|   Info            |
+|-----|-------|-------------|-----|---|---|------|--------------------|-----|------|-------------------|
+| 0   | 1     | 0           | 0   | 0 | 0 | 0    | 2721 / 1.0.17      | 81  | 1121 | HM 1T MI |
+| 0   | 1     | 0           | 0   | 0 | 0 | 0    | 2774 / 1.1.1       | 81  | 1121 | HM 1T MI |
+| 0   | 1     | 0           | 0   | 0 | 0 | 0    | 4E22 / 2.0.2       | 59  | 1124 | HMS 1T MI |
+| 0   | 1     | 0           | 0   | 0 | 0 | 1    | 4E20 / 2.0.0       | 5A  | 1125 | HMS 1T B |
+| 0   | 1     | 1           | 0   | 0 | 0 | 0    | 2776 / 1.1.2       | 2B  | 1141 | HM 2T MI |
+| 0   | 1     | 1           | 1   | 0 | 0 | 1    | 2845 / 1.3.9       | 4A  | 1143 | HMS 2T |
+| 0   | 1     | 1           | 1   | 0 | 0 | 1    | 2845 / 1.3.9       | 4A  | 1144 | HMS 2T |
+| 0   | 1     | 1           | 1   | 0 | 0 | 1    | 2845 / 1.3.9       | 4A  | 1410 | HMS 2T |
+| 0   | 1     | 2           | 0   | 0 | 0 | 0    | 2777 / 1.1.3       | 29  | 1161 | HM 4T |
+| 0   | 4     | 2           | 0   | 0 | 0 | 0    | 2719 / 1.0.9       | 57  | 1162 | HME1 4T MI|
+| 0   | 1     | 2           | 1   | 0 | 0 | 0    | 272B / 1.0.27      | 65  | 1164 | HMS 4T |
+| 0   | 1     | 2           | 1   | 0 | 0 | 0    | 4E24 / 2.0.4       | 65  | 1164 | HMS 4T |
+| 0   | 1     | 2           | 2   | 0 | 0 | 0    | 2719 / 1.0.9       | 31  | 1165 | HMS 4T 2000B_T |
+| 0   | 1     | 2           | 1   | 1 | 0 | 1    | 4E25 / 2.0.5       | 31  | 1166 | HMS 4T 2000C_B |
+| 0   | 1     | 2           | 3   | 0 | 0 | 1    | 283D / 1.3.1       | 31  | 1620 | HMS 4T WB_B (?F280034) |
+| 0   | 3     | 5           | 0   | 0 | 0 | 0    | 2779 / 1.1.5       | 04  | 1361 | HMT 4T |
+| 0   | 4     | 2           | 0   | 0 | 0 | 0    | 2719 / 1.0.9       | 04  | ?    | HMT 4T MI|
+| 0   | 3     | 3           | 0   | 0 | 0 | 0    | 27F3 / 1.2.27      | 8C  | 1382 | HMT 6T |
+| 2   | 1     | 6           | 0   | 0 | 0 | 0    | 28A0 / 1.0.4       | F9  | 1520 | MIT-5000 (?F280034) |
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
