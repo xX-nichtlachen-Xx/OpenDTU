@@ -62,9 +62,24 @@ struct FirmwareLineTypeRule {
 };
 
 constexpr FirmwareLineTypeRule kFirmwareLineTypeRules[] = {
+    { 0x1121, 0 }, // MI
     { 0x1124, 0 }, // MI
     { 0x1125, 1 }, // B
-    { 0x1140, 1 }, // B
+    { 0x1141, 0 }, // MI
+    { 0x1143, 1 }, // B
+    { 0x1144, 1 }, // B
+    { 0x1161, 0 }, // MI
+    { 0x1162, 0 }, // MI
+    { 0x1164, 0 }, // MI
+    { 0x1165, 0 }, // MI
+    { 0x1166, 1 }, // B
+    { 0x1361, 0 }, // MI
+    { 0x1362, 0 }, // MI
+    { 0x1382, 0 }, // MI
+    { 0x1400, 1 }, // B
+    { 0x1410, 1 }, // B
+    { 0x1520, 0 }, // MI
+    { 0x1620, 1 }, // B
 };
 
 bool lookupExpectedLineType(const uint64_t serial, uint8_t& outLineType)
