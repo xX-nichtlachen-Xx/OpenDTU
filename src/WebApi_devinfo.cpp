@@ -49,6 +49,7 @@ constexpr FirmwareSerialRule kFirmwareSerialRules[] = {
     { 0x1121, 1, 0, 0, 0 }, // HM 1T MI
     { 0x1124, 1, 0, 0, 0 }, // HMS 1T MI
     { 0x1125, 1, 0, 0, 1 }, // HMS 1T B
+    { 0x1400, 1, 0, 0, 1 }, // HMS 1T B
     { 0x1141, 1, 1, 0, 0 }, // HM 2T MI
     { 0x1143, 1, 1, 1, 1 }, // HMS 2T B
     { 0x1144, 1, 1, 1, 1 }, // HMS 2T B
