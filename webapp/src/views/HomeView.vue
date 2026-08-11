@@ -1372,7 +1372,7 @@ export default defineComponent({
             const channelCount = inverter.DC ? Object.keys(inverter.DC).length : 1;
             // Real inverters only ship in 1/2/4-string variants; a 3-string reading is treated as 4.
             const slots = channelCount <= 1 ? 1 : channelCount <= 2 ? 2 : 4;
-            this.targetYieldTotalKwh = new Array(slots).fill(0);
+            this.targetYieldTotalKwh = Array.from({ length: slots }, () => 0);
 
             for (let i = 0; i < slots; i++) {
                 const wh = inverter.DC?.[i]?.YieldTotal?.v;
