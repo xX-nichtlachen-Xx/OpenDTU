@@ -602,11 +602,7 @@
                         </li>
                     </ul>
                 </div>
-                <div
-                    class="alert alert-secondary mt-3"
-                    role="alert"
-                    v-html="$t('home.ReactivePowerHint')"
-                ></div>
+                <div class="alert alert-secondary mt-3" role="alert" v-html="$t('home.ReactivePowerHint')"></div>
             </div>
         </div>
 
