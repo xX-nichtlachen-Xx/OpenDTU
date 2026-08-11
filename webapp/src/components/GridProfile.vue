@@ -116,11 +116,7 @@
         </div>
 
         <div class="accordion" id="accordionProfile">
-            <div
-                class="accordion-item accordion-table"
-                v-for="(section, index) in displaySections"
-                :key="index"
-            >
+            <div class="accordion-item accordion-table" v-for="(section, index) in displaySections" :key="index">
                 <h2 class="accordion-header">
                     <button
                         class="accordion-button collapsed"
@@ -147,7 +143,13 @@
                                                     class="form-control"
                                                     step="any"
                                                     :value="value.v"
-                                                    @input="onEditValue(index, vIdx, ($event.target as HTMLInputElement).value)"
+                                                    @input="
+                                                        onEditValue(
+                                                            index,
+                                                            vIdx,
+                                                            ($event.target as HTMLInputElement).value
+                                                        )
+                                                    "
                                                 />
                                                 <span class="input-group-text">{{ value.u }}</span>
                                             </div>
@@ -156,7 +158,9 @@
                                             <select
                                                 class="form-select form-select-sm"
                                                 :value="value.v"
-                                                @change="onEditValue(index, vIdx, ($event.target as HTMLSelectElement).value)"
+                                                @change="
+                                                    onEditValue(index, vIdx, ($event.target as HTMLSelectElement).value)
+                                                "
                                             >
                                                 <option :value="1">{{ $t('gridprofile.Enabled') }}</option>
                                                 <option :value="0">{{ $t('gridprofile.Disabled') }}</option>
