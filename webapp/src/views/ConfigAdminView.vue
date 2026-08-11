@@ -103,6 +103,38 @@
             <div class="alert alert-danger mt-3" role="alert" v-html="$t('fileadmin.RestoreHint')"></div>
         </CardElement>
 
+        <CardElement :text="$t('fileadmin.FirmwareUploadHeader')" textVariant="text-bg-primary" add-space>
+            <div v-if="firmwareUploadError" class="alert alert-danger" role="alert">
+                {{ firmwareUploadError }}
+            </div>
+            <div v-else-if="firmwareUploadSuccess" class="alert alert-success" role="alert">
+                {{ $t('fileadmin.FirmwareUploadSuccess') }}
+            </div>
+            <div v-else class="row g-3 align-items-center form-group pt-2">
+                <div class="col-sm">
+                    <input
+                        class="form-control"
+                        type="file"
+                        ref="firmwareFile"
+                        accept=".hex"
+                        @change="onFirmwareFileChange"
+                    />
+                </div>
+                <div class="col-sm">
+                    <button
+                        class="btn btn-primary"
+                        @click="uploadFirmwareFile"
+                        :disabled="firmwareUploading || !firmwareFileSelected"
+                    >
+                        {{ $t('fileadmin.Upload') }}
+                    </button>
+                </div>
+            </div>
+            <div class="alert alert-info mt-3" role="alert">
+                {{ $t('fileadmin.FirmwareUploadHint') }}
+            </div>
+        </CardElement>
+
         <CardElement :text="$t('fileadmin.ResetHeader')" textVariant="text-bg-primary" center-content add-space>
             <button class="btn btn-danger" @click="onFactoryResetModal">
                 {{ $t('fileadmin.FactoryResetButton') }}
@@ -181,6 +213,11 @@ export default defineComponent({
             progress: 0,
             UploadError: '',
             UploadSuccess: false,
+            firmwareUploading: false,
+            firmwareUploadError: '',
+            firmwareUploadSuccess: false,
+            firmwareFileSelected: false,
+            firmwareFile: {} as Blob,
             restoreFileSelect: 'config.json',
             restoreList: [
                 {
@@ -298,6 +335,60 @@ export default defineComponent({
                 }
             };
             reader.readAsText(this.file);
+        },
+        onFirmwareFileChange() {
+            const target = this.$refs.firmwareFile as HTMLInputElement;
+            if (target.files !== null && target.files[0]) {
+                this.firmwareFile = target.files[0];
+                this.firmwareFileSelected = true;
+                this.firmwareUploadError = '';
+                this.firmwareUploadSuccess = false;
+            } else {
+                this.firmwareFileSelected = false;
+            }
+        },
+        uploadFirmwareFile() {
+            this.firmwareUploading = true;
+            this.firmwareUploadError = '';
+            this.firmwareUploadSuccess = false;
+
+            const target = this.$refs.firmwareFile as HTMLInputElement;
+            if (target.files === null || target.files[0] === undefined) {
+                this.firmwareUploadError = this.$t('fileadmin.NoFileSelected');
+                this.firmwareUploading = false;
+                return;
+            }
+
+            const request = new XMLHttpRequest();
+            const onTransportFailure = () => {
+                this.firmwareUploadError = this.$t('fileadmin.FirmwareUploadError');
+            };
+
+            request.addEventListener('load', () => {
+                if (request.status === 200) {
+                    this.firmwareUploadSuccess = true;
+                    this.getFileList();
+                } else {
+                    this.firmwareUploadError = request.responseText || this.$t('fileadmin.FirmwareUploadError');
+                }
+            });
+            request.addEventListener('error', onTransportFailure);
+            request.addEventListener('abort', onTransportFailure);
+            request.addEventListener('loadend', () => {
+                this.firmwareUploading = false;
+            });
+            request.upload.addEventListener('progress', (e) => {
+                this.progress = Math.trunc((e.loaded / e.total) * 100);
+            });
+            request.withCredentials = true;
+
+            const formData = new FormData();
+            formData.append('firmware', this.firmwareFile, 'firmware.hex');
+            request.open('post', '/api/file/upload?file=firmware/uploaded.hex&restart=false');
+            authHeader().forEach((value, key) => {
+                request.setRequestHeader(key, value);
+            });
+            request.send(formData);
         },
         onUpload() {
             this.uploading = true;
