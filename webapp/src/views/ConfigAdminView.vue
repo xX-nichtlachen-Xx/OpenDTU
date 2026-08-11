@@ -388,12 +388,8 @@ export default defineComponent({
             authHeader().forEach((value, key) => {
                 request.setRequestHeader(key, value);
             });
-<<<<<<< HEAD
-            request.send(formData);        },
-=======
             request.send(formData);
         },
->>>>>>> remotes/origin/copilot/fix-failing-github-actions-job-build
         onUpload() {
             this.uploading = true;
             const target = this.$refs.file as HTMLInputElement; //  event.target as HTMLInputElement;
