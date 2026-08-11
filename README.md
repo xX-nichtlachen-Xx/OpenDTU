@@ -8,11 +8,13 @@ You can adjust the total generated energy values.
 
 
 Handle with care and on your own risk!
-Testetd with HM Inverters only!
+Testetd with HM/S Inverters only!
+(Limited to 1T, 2T and 4T!!)
 
-
+-----------------------------------------------
+Manual and Downloads:
 [GridProfile Selector/Editor and new Power Commands](https://github.com/tbnobody/OpenDTU/discussions/3168)
-
+-----------------------------------------------
 
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
