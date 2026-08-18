@@ -816,7 +816,7 @@ export default defineComponent({
                     if (data.firmware_update_running) {
                         this.startDevInfoPolling(serial);
                     } else {
-                        this.applyFirmwareUpdateResult(data);
+                        this.applyFirmwareUpdateResult(data, serial);
                     }
                 });
 
@@ -879,7 +879,11 @@ export default defineComponent({
                 });
         },
         // Shows the pass/fail/aborted outcome once a firmware update has stopped running.
-        applyFirmwareUpdateResult(data: DevInfoStatus) {
+        applyFirmwareUpdateResult(data: DevInfoStatus, serial?: string) {
+            this.devInfoList.valid_data = false;
+            this.devInfoList.firmware_update_running = false;
+            this.devInfoList.firmware_update_result = 'none';
+
             switch (data.firmware_update_result) {
                 case 'success':
                     this.firmwareUpdateAlertMessage = this.$t('home.UpdateSuccess');
@@ -898,6 +902,19 @@ export default defineComponent({
                     break;
                 default:
                     break;
+            }
+
+            if (serial) {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((freshData) => {
+                        this.devInfoList = freshData;
+                        this.devInfoList.serial = serial;
+                        this.devInfoLoading = false;
+                    })
+                    .catch(() => {
+                        this.devInfoLoading = false;
+                    });
             }
         },
         startDevInfoPolling(serial: string) {
@@ -920,7 +937,7 @@ export default defineComponent({
                             this.devInfoPollHandle = window.setTimeout(poll, 2000);
                         } else {
                             this.devInfoPollHandle = 0;
-                            this.applyFirmwareUpdateResult(data);
+                            this.applyFirmwareUpdateResult(data, serial);
                         }
                     })
                     .catch(() => {
