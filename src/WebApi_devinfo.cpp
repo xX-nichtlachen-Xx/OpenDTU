@@ -38,33 +38,62 @@ bool isAsciiDigit(const char c)
 // intentionally never match a real row (see firmwareFileMatchesInverter()).
 struct FirmwareSerialRule {
     uint16_t preSerial;
-    uint8_t phase; // 1 = single-phase (HM/HMS/HME1), 3 = three-phase (HMT)
+    uint8_t newGen1;   // row byte [4] low nibble; high nibble ignored
+    uint8_t phase;     // row byte [5] high nibble
     uint8_t inputType; // row byte [5] low nibble
-    uint8_t dsp; // row byte [6]
-    uint8_t lineType; // row byte [7]: 0 = MI, 1 = B
+    uint8_t dsp;       // row byte [6] high nibble
+    uint8_t newGen2;   // row byte [6] low nibble
+    uint8_t newGen3;   // row byte [7] high nibble
+    uint8_t bType;     // row byte [7] low nibble
 };
 
 constexpr FirmwareSerialRule kFirmwareSerialRules[] = {
-    // preSerial, phase, inputType, dsp, lineType
-    { 0x1121, 1, 0, 0, 0 }, // HM 1T MI
-    { 0x1124, 1, 0, 0, 0 }, // HMS 1T MI
-    { 0x1125, 1, 0, 0, 1 }, // HMS 1T B
-    { 0x1400, 1, 0, 0, 1 }, // HMS 1T B
-    { 0x1141, 1, 1, 0, 0 }, // HM 2T MI
-    { 0x1143, 1, 1, 1, 1 }, // HMS 2T B
-    { 0x1144, 1, 1, 1, 1 }, // HMS 2T B
-    { 0x1410, 1, 1, 1, 1 }, // HMS 2T B
-    { 0x1161, 1, 2, 0, 0 }, // HM 4T MI
-    { 0x1162, 4, 2, 0, 0 }, // HME1 4T MI
-    { 0x1164, 1, 2, 1, 0 }, // HMS 4T MI
-    { 0x1165, 1, 2, 2, 0 }, // HMS 4T MI (2000B_T)
-    { 0x1166, 1, 2, 1, 1 }, // HMS 4T B (2000C_B)
-    { 0x1620, 1, 2, 3, 1 }, // HMS 4T B (WB_B)
-    { 0x1361, 3, 5, 0, 0 }, // HMT 4T MI
-    { 0x1362, 3, 6, 0, 0 }, // HMT 4T MI (NA R)
-    { 0x1382, 3, 3, 0, 0 }, // HMT 6T MI
-    { 0x1520, 1, 6, 0, 0 }, // MIT-5000 MI
+    // preSerial, newGen1, phase, inputType, dsp, newGen2, newGen3, bType
+    { 0x1121, 0, 1, 0, 0, 0, 0, 0 }, // HM 1T MI
+    { 0x1124, 0, 1, 0, 0, 0, 0, 0 }, // HMS 1T MI
+    { 0x1125, 0, 1, 0, 0, 0, 0, 1 }, // HMS 1T B
+    { 0x1400, 0, 1, 0, 0, 0, 0, 1 }, // HMS 1T B
+    { 0x1141, 0, 1, 1, 0, 0, 0, 0 }, // HM 2T MI
+    { 0x1143, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
+    { 0x1144, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
+    { 0x1410, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
+    { 0x1161, 0, 1, 2, 0, 0, 0, 0 }, // HM 4T MI
+    { 0x1162, 0, 4, 2, 0, 0, 0, 0 }, // HME1 4T MI
+    { 0x1164, 0, 1, 2, 1, 0, 0, 0 }, // HMS 4T MI
+    { 0x1165, 0, 1, 2, 2, 0, 0, 0 }, // HMS 4T MI (2000B_T)
+    { 0x1166, 0, 1, 2, 1, 1, 0, 1 }, // HMS 4T B (2000C_B)
+    { 0x1421, 0, 1, 2, 1, 1, 0, 1 }, // HMS 4T B (2000C_B)
+    { 0x1620, 0, 1, 2, 3, 0, 0, 1 }, // HMS 4T B (WB_B)
+    { 0x1361, 0, 3, 5, 0, 0, 0, 0 }, // HMT 4T MI
+    { 0x1362, 0, 3, 6, 0, 0, 0, 0 }, // HMT 4T MI (NA R)
+    { 0x1382, 0, 3, 3, 0, 0, 0, 0 }, // HMT 6T MI
+    { 0x1520, 0, 1, 6, 0, 0, 0, 0 }, // MIT-5000 MI
 };
+
+static bool identityRowMatchesRule(const uint8_t rowBytes[8], const FirmwareSerialRule& rule)
+{
+    // byte [4] = 0x1? ; ignore high nibble, compare low nibble as newGen1
+    if ((rowBytes[0] & 0x0F) != rule.newGen1) {
+        return false;
+    }
+
+    // byte [5] = phase << 4 | inputType
+    if ((rowBytes[1] >> 4) != rule.phase || (rowBytes[1] & 0x0F) != rule.inputType) {
+        return false;
+    }
+
+    // byte [6] = dsp << 4 | newGen2
+    if ((rowBytes[2] >> 4) != rule.dsp || (rowBytes[2] & 0x0F) != rule.newGen2) {
+        return false;
+    }
+
+    // byte [7] = newGen3 << 4 | bType
+    if ((rowBytes[3] >> 4) != rule.newGen3 || (rowBytes[3] & 0x0F) != rule.bType) {
+        return false;
+    }
+
+    return true;
+}
 
 const FirmwareSerialRule* lookupFirmwareSerialRule(const uint64_t serial)
 {
@@ -82,8 +111,9 @@ const FirmwareSerialRule* lookupFirmwareSerialRule(const uint64_t serial)
 // serial ranges) -- a coarser gate on top of the channel/dsp/line-type
 // checks above.
 constexpr uint16_t kAllowedFirmwareUpdateSerialPrefixes[] = {
-    0x1121, 0x1141, 0x1161, 0x1124, 0x1400, 0x1125,
-    0x1143, 0x1144, 0x1410, 0x1361, 0x1362, 0x1164, 0x1382,
+    0x1121, 0x1141, 0x1161, 0x1162, 0x1124, 0x1400, 0x1125,
+    0x1143, 0x1144, 0x1410, 0x1361, 0x1362, 0x1164, 0x1165,
+    0x1166, 0x1421, 0x1620, 0x1382,
 };
 
 bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
@@ -214,11 +244,17 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
         return false;
     }
 
-    const uint8_t expectedChannelCode = static_cast<uint8_t>(0x10 | rule->inputType);
-    if (rowBytes[5] != expectedChannelCode || rowBytes[6] != rule->dsp || rowBytes[7] != rule->lineType) {
-        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")! Expected channel/dsp/type "
-            + String(expectedChannelCode, HEX) + "/" + String(rule->dsp, HEX) + "/" + String(rule->lineType)
-            + ", got " + String(rowBytes[5], HEX) + "/" + String(rowBytes[6], HEX) + "/" + String(rowBytes[7]) + "!";
+    const uint8_t identityRow[8] = {
+        rowBytes[4], rowBytes[5], rowBytes[6], rowBytes[7], 0, 0, 0, 0
+    };
+    if (!identityRowMatchesRule(identityRow, *rule)) {
+        outReason = "Firmware file does not match the connected inverter model (" + hwModelName + ")! Expected identity nibble pattern 1/"
+            + String(rule->newGen1, HEX) + "/" + String(rule->phase, HEX) + "/" + String(rule->inputType, HEX) + "/"
+            + String(rule->dsp, HEX) + "/" + String(rule->newGen2, HEX) + "/" + String(rule->newGen3, HEX) + "/" + String(rule->bType, HEX)
+            + ", got " + String((identityRow[0] >> 4) & 0x0F, HEX) + "/" + String(identityRow[0] & 0x0F, HEX) + "/"
+            + String((identityRow[1] >> 4) & 0x0F, HEX) + "/" + String(identityRow[1] & 0x0F, HEX) + "/"
+            + String((identityRow[2] >> 4) & 0x0F, HEX) + "/" + String(identityRow[2] & 0x0F, HEX) + "/"
+            + String((identityRow[3] >> 4) & 0x0F, HEX) + "/" + String(identityRow[3] & 0x0F, HEX) + "!";
         return false;
     }
 
