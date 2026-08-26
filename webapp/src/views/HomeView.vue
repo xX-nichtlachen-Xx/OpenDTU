@@ -880,11 +880,16 @@ export default defineComponent({
         },
         // Shows the pass/fail/aborted outcome once a firmware update has stopped running.
         applyFirmwareUpdateResult(data: DevInfoStatus, serial?: string) {
+            // `data` can be the same object instance as `this.devInfoList`, so don't
+            // clear the field before evaluating the result; otherwise the switch sees
+            // `firmware_update_result === 'none'` and the final dialog never appears.
+            const result = data.firmware_update_result || 'none';
+
             this.devInfoList.valid_data = false;
             this.devInfoList.firmware_update_running = false;
-            this.devInfoList.firmware_update_result = 'none';
+            this.devInfoList.firmware_update_result = result;
 
-            switch (data.firmware_update_result) {
+            switch (result) {
                 case 'success':
                     this.firmwareUpdateAlertMessage = this.$t('home.UpdateSuccess');
                     this.firmwareUpdateAlertType = 'success';
