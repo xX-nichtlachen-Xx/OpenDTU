@@ -56,6 +56,7 @@ constexpr FirmwareSerialRule kFirmwareSerialRules[] = {
     { 0x1141, 0, 1, 1, 0, 0, 0, 0 }, // HM 2T MI
     { 0x1143, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
     { 0x1144, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
+    { 0x1146, 0, 1, 1, 1, 0, 0, 2 }, // HMS 2T US
     { 0x1410, 0, 1, 1, 1, 0, 0, 1 }, // HMS 2T B
     { 0x1161, 0, 1, 2, 0, 0, 0, 0 }, // HM 4T MI
     { 0x1162, 0, 4, 2, 0, 0, 0, 0 }, // HME1 4T MI
@@ -112,8 +113,8 @@ const FirmwareSerialRule* lookupFirmwareSerialRule(const uint64_t serial)
 // checks above.
 constexpr uint16_t kAllowedFirmwareUpdateSerialPrefixes[] = {
     0x1121, 0x1141, 0x1161, 0x1162, 0x1124, 0x1400, 0x1125,
-    0x1143, 0x1144, 0x1410, 0x1361, 0x1362, 0x1164, 0x1165,
-    0x1166, 0x1421, 0x1620, 0x1382,
+    0x1143, 0x1144, 0x1146, 0x1410, 0x1361, 0x1362, 0x1164,
+    0x1165, 0x1166, 0x1421, 0x1620, 0x1382,
 };
 
 bool isSerialAllowedForFirmwareUpdate(const uint64_t serial)
