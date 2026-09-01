@@ -1,8 +1,8 @@
 # OpenDTU with Hoymiles HM / HMS / HMT Inverter Firmware Update Function / Updater
 
 
-Update your HM/HMS inverter firmware at your own risk.
-Supported models: Hoymiles HM / HMS / HMT ‑300, 350, 400, 600, 700, 800, 1000, 1200, 1500, 1600, 2000, 2250.
+Update your HM / HMS / HMT Hoymiles inverter firmware at your own risk.
+Supported models: Hoymiles HM / HMS / HMT 300, 350, 400, 600, 700, 800, 1000, 1200, 1500, 1600, 1800, 2000, 2250.
 If the update aborts or the inverter becomes unresponsive after flashing, perform a reflash.
 Firmware files are located in: ./Firmware
 
