@@ -202,7 +202,7 @@ bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const
         return false;
     }
 
-    if (g_otaFirmwareUploadBuffer.size() + len > MAX_FIRMWARE_UPLOAD_SIZE) {
+    if (len > MAX_FIRMWARE_UPLOAD_SIZE) {
         return false;
     }
 
