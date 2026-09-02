@@ -12,6 +12,8 @@
 #include <AsyncJson.h>
 #include <LittleFS.h>
 #include <esp_heap_caps.h>
+#include <esp_ota_ops.h>
+#include <esp_partition.h>
 #include <cstring>
 
 namespace {
@@ -25,6 +27,18 @@ struct PsramFirmwareUploadBuffer {
 };
 
 PsramFirmwareUploadBuffer g_psramFirmwareUploadBuffer;
+std::vector<uint8_t> g_otaFirmwareUploadBuffer;
+String g_otaFirmwareUploadVariant;
+
+const esp_partition_t* getInactiveFirmwarePartition()
+{
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    if (running == nullptr) {
+        return nullptr;
+    }
+
+    return esp_ota_get_next_update_partition(running);
+}
 
 String normalizeUploadPath(const String& value)
 {
@@ -172,6 +186,81 @@ void clearFirmwareUploadFromPsram()
     g_psramFirmwareUploadBuffer.size = 0;
     g_psramFirmwareUploadBuffer.capacity = 0;
     g_psramFirmwareUploadBuffer.variant = String();
+}
+
+bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const String& variant)
+{
+    if (data == nullptr || len == 0) {
+        if (!variant.isEmpty()) {
+            g_otaFirmwareUploadVariant = variant;
+        }
+        return true;
+    }
+
+    const esp_partition_t* partition = getInactiveFirmwarePartition();
+    if (partition == nullptr) {
+        return false;
+    }
+
+    if (g_otaFirmwareUploadBuffer.size() + len > MAX_FIRMWARE_UPLOAD_SIZE) {
+        return false;
+    }
+
+    if (g_otaFirmwareUploadBuffer.empty()) {
+        const esp_err_t eraseResult = esp_partition_erase_range(partition, 0, partition->size);
+        if (eraseResult != ESP_OK) {
+            return false;
+        }
+    }
+
+    if (g_otaFirmwareUploadBuffer.size() + len > partition->size) {
+        return false;
+    }
+
+    const esp_err_t writeResult = esp_partition_write(partition, g_otaFirmwareUploadBuffer.size(), data, len);
+    if (writeResult != ESP_OK) {
+        return false;
+    }
+
+    if (!variant.isEmpty()) {
+        g_otaFirmwareUploadVariant = variant;
+    }
+
+    g_otaFirmwareUploadBuffer.insert(g_otaFirmwareUploadBuffer.end(), data, data + len);
+    return true;
+}
+
+bool getFirmwareUploadFromInactiveOtaSlot(std::vector<uint8_t>& buffer)
+{
+    if (g_otaFirmwareUploadBuffer.empty()) {
+        return false;
+    }
+
+    buffer = g_otaFirmwareUploadBuffer;
+    return true;
+}
+
+const uint8_t* peekFirmwareUploadInInactiveOtaSlot(size_t& outLen)
+{
+    if (g_otaFirmwareUploadBuffer.empty()) {
+        outLen = 0;
+        return nullptr;
+    }
+
+    outLen = g_otaFirmwareUploadBuffer.size();
+    return g_otaFirmwareUploadBuffer.data();
+}
+
+void clearFirmwareUploadFromInactiveOtaSlot()
+{
+    const esp_partition_t* partition = getInactiveFirmwarePartition();
+    if (partition != nullptr) {
+        esp_partition_erase_range(partition, 0, partition->size);
+    }
+
+    g_otaFirmwareUploadBuffer.clear();
+    g_otaFirmwareUploadBuffer.shrink_to_fit();
+    g_otaFirmwareUploadVariant.clear();
 }
 
 void WebApiFileClass::init(AsyncWebServer& server, Scheduler& scheduler)
@@ -328,8 +417,10 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
 
         const String fileParam = request->getParam("file")->value();
         const String name = normalizeUploadPath(fileParam);
-        const bool usePsram = name.startsWith("/firmware/");
+        const bool usePsram = name.startsWith("/firmware/") && ESP.getPsramSize() > 0;
+        const bool useInactiveOtaSlot = name.startsWith("/firmware/") && ESP.getPsramSize() == 0;
         request->setAttribute("upload_use_psram", usePsram);
+        request->setAttribute("upload_use_ota_slot", useInactiveOtaSlot);
 
         if (usePsram) {
             clearFirmwareUploadFromPsram();
@@ -343,6 +434,13 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
             // chunk of data. Returning early discarded that chunk, leaving
             // the PSRAM buffer empty and causing loadFirmwareForInverter()
             // to silently fall back to a stale/unrelated file on LittleFS.
+        } else if (useInactiveOtaSlot) {
+            clearFirmwareUploadFromInactiveOtaSlot();
+            const int slashPos = name.lastIndexOf('/');
+            const int dotPos = name.lastIndexOf('.');
+            if (slashPos >= 0 && dotPos > slashPos) {
+                setFirmwareUploadVariant(name.substring(slashPos + 1, dotPos));
+            }
         } else {
             if (name.length() == 0 || !ensureParentDirectories(name)) {
                 request->send(500);
@@ -361,6 +459,7 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
     // later chunk/finalization calls for the same upload don't need to
     // re-derive it from the "file" param each time.
     const bool usePsram = request->getAttribute("upload_use_psram", false);
+    const bool useInactiveOtaSlot = request->getAttribute("upload_use_ota_slot", false);
 
     if (len) {
         if (usePsram) {
@@ -369,6 +468,13 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
                 // Don't leave a partial image behind for a later request to
                 // mistake for a complete upload.
                 clearFirmwareUploadFromPsram();
+                request->send(500);
+                return;
+            }
+        } else if (useInactiveOtaSlot) {
+            String variant = getFirmwareUploadVariant();
+            if (!writeFirmwareUploadToInactiveOtaSlot(data, len, variant)) {
+                clearFirmwareUploadFromInactiveOtaSlot();
                 request->send(500);
                 return;
             }
@@ -385,7 +491,11 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         request->setAttribute("upload_psram_complete", true);
     }
 
-    if (final && !usePsram) {
+    if (final && useInactiveOtaSlot) {
+        request->setAttribute("upload_ota_slot_complete", true);
+    }
+
+    if (final && !usePsram && !useInactiveOtaSlot) {
         // close the file handle as the upload is now done
         request->_tempFile.close();
     }
@@ -411,7 +521,9 @@ void WebApiFileClass::onFileUploadFinish(AsyncWebServerRequest* request)
         const String fileParam = request->getParam("file")->value();
         const String name = normalizeUploadPath(fileParam);
         if (name.startsWith("/firmware/")) {
-            uploadSucceeded = request->getAttribute("upload_psram_complete", false);
+            const bool psramComplete = request->getAttribute("upload_psram_complete", false);
+            const bool otaSlotComplete = request->getAttribute("upload_ota_slot_complete", false);
+            uploadSucceeded = psramComplete || otaSlotComplete;
         }
     }
 

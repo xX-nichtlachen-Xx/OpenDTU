@@ -29,3 +29,8 @@ const uint8_t* peekFirmwareUploadInPsram(size_t& outLen);
 String getFirmwareUploadVariant();
 void setFirmwareUploadVariant(const String& variant);
 void clearFirmwareUploadFromPsram();
+
+bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const String& variant = String());
+bool getFirmwareUploadFromInactiveOtaSlot(std::vector<uint8_t>& buffer);
+const uint8_t* peekFirmwareUploadInInactiveOtaSlot(size_t& outLen);
+void clearFirmwareUploadFromInactiveOtaSlot();

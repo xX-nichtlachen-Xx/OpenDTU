@@ -309,6 +309,14 @@ bool pickFirmwareSource(String& outFsPath, const uint8_t*& outRawAscii, size_t& 
         return true;
     }
 
+    size_t otaLen = 0;
+    const uint8_t* otaPtr = peekFirmwareUploadInInactiveOtaSlot(otaLen);
+    if (otaPtr != nullptr && otaLen > 0) {
+        outRawAscii = otaPtr;
+        outRawAsciiLen = otaLen;
+        return true;
+    }
+
     static const char* const candidatePaths[] = { "/firmware/uploaded.hex", "/littlefs/firmware/uploaded.hex" };
     for (const char* path : candidatePaths) {
         if (LittleFS.exists(path)) {
