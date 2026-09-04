@@ -582,7 +582,7 @@
         "UploadSuccess": "Succès du téléversement",
         "RestoreHint": "<b>Note :</b> Cette opération remplace le fichier de configuration par la configuration restaurée et redémarre OpenDTU pour appliquer tous les paramètres.",
         "FirmwareUploadHeader": "Image du firmware en temps d'exécution",
-        "FirmwareUploadHint": "Téléversez un fichier HEX dans PSRAM. Il est enregistré sous /firmware/uploaded.hex et est vérifié par rapport au modèle de l'onduleur connecté au démarrage de la mise à jour.",
+        "FirmwareUploadHint": "Téléversez un fichier Inverter Firmware HEX. Il est vérifié par rapport au modèle de l'onduleur connecté au démarrage de la mise à jour.",
         "FirmwareUploadSuccess": "L'image du firmware a été téléversée avec succès.",
         "FirmwareUploadError": "Le téléversement de l'image du firmware a échoué.",
         "Upload": "Téléverser",
