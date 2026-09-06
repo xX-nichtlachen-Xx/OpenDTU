@@ -854,6 +854,7 @@ export default defineComponent({
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((response) => {
                     if (response.type == 'success') {
+                        this.getInitialData(false);
                         // firmwareUpdateStartPending is cleared once the poll below gets its first response.
                         this.startDevInfoPolling(serial);
                     } else {
