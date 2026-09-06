@@ -155,6 +155,11 @@ bool InverterAbstract::getFirmwareUpdateRunning()
     return false;
 }
 
+uint8_t InverterAbstract::getFirmwareUpdateProgress() const
+{
+    return 0;
+}
+
 void InverterAbstract::abortFirmwareUpdateRequest()
 {
 }

@@ -27,6 +27,7 @@ public:
                                    const esp_partition_t* otaPartition = nullptr,
                                    const size_t otaPartitionLen = 0) override;
     bool getFirmwareUpdateRunning() override;
+    uint8_t getFirmwareUpdateProgress() const override;
     void abortFirmwareUpdateRequest() override;
     void failFirmwareUpdateRequest() override;
     void resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt) override;
@@ -55,6 +56,7 @@ private:
     uint16_t* _fwLineLengths = nullptr;        // ASCII length per line
     size_t _fwLineCount = 0;
     size_t _fwNextLineIndex = 0;
+    uint8_t _firmwareUpdateProgress = 0;
     bool _firmwareUpdateAborted = false;
     FirmwareUpdateResult _firmwareUpdateResult = FirmwareUpdateResult::None;
     std::mutex _pendingFirmwareRowsMutex;

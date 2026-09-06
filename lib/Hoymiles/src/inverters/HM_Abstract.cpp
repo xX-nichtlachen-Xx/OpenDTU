@@ -218,6 +218,7 @@ bool HM_Abstract::sendFirmwareUpdateRequest(const uint8_t* rawAscii,
 
     _firmwareUpdateAborted = false;
     _firmwareUpdateResult = FirmwareUpdateResult::None;
+    _firmwareUpdateProgress = 0;
 
     // Firmware data is transmitted per Intel-Hex "row" (one row per line of
     // the uploaded .hex file, each row being that line's fully hex-decoded
@@ -310,6 +311,7 @@ void HM_Abstract::onFirmwareRowCompleted()
         std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
         if (_firmwareUpdateResult == FirmwareUpdateResult::None) {
             _firmwareUpdateResult = FirmwareUpdateResult::Success;
+            _firmwareUpdateProgress = 100;
             closeFirmwareSource_unlocked();
         }
     }
@@ -393,6 +395,26 @@ bool HM_Abstract::getFirmwareUpdateRunning()
         }
     }
     return _radio->hasFirmwareUpdateCommands(this);
+}
+
+uint8_t HM_Abstract::getFirmwareUpdateProgress() const
+{
+    if (_firmwareUpdateAborted) {
+        return 0;
+    }
+
+    if (_firmwareUpdateResult == FirmwareUpdateResult::Success) {
+        return 100;
+    }
+
+    if (_fwLineCount == 0) {
+        return 0;
+    }
+
+    const size_t completed = std::min(_fwNextLineIndex, _fwLineCount);
+    uint8_t percent = static_cast<uint8_t>((completed * 100u) / _fwLineCount);
+    percent = static_cast<uint8_t>((percent / 5u) * 5u);
+    return std::min<uint8_t>(100, percent);
 }
 
 void HM_Abstract::abortFirmwareUpdateRequest()

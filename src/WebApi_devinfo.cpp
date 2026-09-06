@@ -366,6 +366,7 @@ void WebApiDevInfoClass::onDevInfoStatus(AsyncWebServerRequest* request)
         root["firmware_update_supported"] = isFirmwareUpdateSupported(inv);
         root["firmware_update_variant"] = getFirmwareVariant(inv);
         root["firmware_update_running"] = inv->getFirmwareUpdateRunning();
+        root["firmware_update_progress"] = inv->getFirmwareUpdateProgress();
         root["firmware_update_result"] = firmwareUpdateResultToString(inv->getFirmwareUpdateResult());
     }
 

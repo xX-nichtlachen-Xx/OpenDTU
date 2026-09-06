@@ -116,6 +116,7 @@ public:
                                            const esp_partition_t* otaPartition = nullptr,
                                            const size_t otaPartitionLen = 0) = 0;
     virtual bool getFirmwareUpdateRunning();
+    virtual uint8_t getFirmwareUpdateProgress() const;
     virtual void abortFirmwareUpdateRequest();
     // Called for automatic failures (timeout/max attempts), distinct from a user-triggered abort.
     virtual void failFirmwareUpdateRequest();

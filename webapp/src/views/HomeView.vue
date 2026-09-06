@@ -354,6 +354,25 @@
             {{ firmwareUpdateAlertMessage }}
         </BootstrapAlert>
         <template #footer>
+            <div
+                v-if="devInfoList.firmware_update_running"
+                class="d-flex align-items-center flex-grow-1 me-2"
+                style="min-width: 180px;"
+            >
+                <div class="progress flex-grow-1" style="height: 12px;">
+                    <div
+                        class="progress-bar"
+                        role="progressbar"
+                        :style="{ width: `${Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100)}%` }"
+                        :aria-valuenow="Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100)"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                </div>
+                <span class="ms-2 small text-muted">
+                    {{ Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100) }}%
+                </span>
+            </div>
             <button
                 v-if="devInfoList.firmware_update_running"
                 type="button"
@@ -939,7 +958,7 @@ export default defineComponent({
                         this.devInfoList = data;
                         this.devInfoList.serial = serial;
                         if (data.firmware_update_running) {
-                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                            this.devInfoPollHandle = window.setTimeout(poll, 10000);
                         } else {
                             this.devInfoPollHandle = 0;
                             this.applyFirmwareUpdateResult(data, serial);
@@ -949,10 +968,10 @@ export default defineComponent({
                         if (generation !== this.devInfoPollGeneration) {
                             return;
                         }
-                        this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        this.devInfoPollHandle = window.setTimeout(poll, 10000);
                     });
             };
-            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+            this.devInfoPollHandle = window.setTimeout(poll, 10000);
         },
         stopDevInfoPolling() {
             this.devInfoPollGeneration++;

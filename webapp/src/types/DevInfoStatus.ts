@@ -12,5 +12,6 @@ export interface DevInfoStatus {
     firmware_update_supported: boolean;
     firmware_update_variant: string;
     firmware_update_running: boolean;
+    firmware_update_progress: number;
     firmware_update_result: 'none' | 'success' | 'failed' | 'aborted';
 }
