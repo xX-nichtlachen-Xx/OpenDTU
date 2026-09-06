@@ -357,9 +357,9 @@
             <div
                 v-if="devInfoList.firmware_update_running"
                 class="d-flex align-items-center flex-grow-1 me-2"
-                style="min-width: 180px;"
+                style="min-width: 180px"
             >
-                <div class="progress flex-grow-1" style="height: 12px;">
+                <div class="progress flex-grow-1" style="height: 12px">
                     <div
                         class="progress-bar"
                         role="progressbar"
