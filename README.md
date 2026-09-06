@@ -10,7 +10,8 @@ Firmware files are located in: ./Firmware
 
 Handle with care and on your own risk!
 PSRAM is optional now!
-Then it is recommended to disable all NRF24/CMT2300A/Inverter traffic during the update.
+It is recommended to disable all NRF24/CMT2300A/Inverter traffic during the update.
+Update takes about half an hour per inverter.
 
 Upload Firmware File.
 Start Update.
