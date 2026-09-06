@@ -47,7 +47,7 @@ Fimware files are stored in (./Firmware)-
 | 0   | 3     | 3    | 0   | 0 | 0 | 0   | 27F3 / 1.2.27    | 8C  | **1382** | HMT 6T |
 | 2   | 1     | 6    | 0   | 0 | 0 | 0   | 28A0 / 1.0.4     | F9  | **1520** | MIT-5000 (?F280034) |
 
-~If your inverter serial is blocked or not authorized, feel free to contact me.~
+If your inverter serial is blocked or not authorized, feel free to contact me.
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
