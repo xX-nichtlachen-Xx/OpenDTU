@@ -32,10 +32,6 @@ struct PsramFirmwareUploadBuffer {
 
 PsramFirmwareUploadBuffer g_psramFirmwareUploadBuffer;
 
-// OTA-slot fallback (used when no PSRAM is present): the image is written
-// straight to flash chunk-by-chunk and NEVER buffered in RAM -- keeping a
-// second full copy in the (tiny, no-PSRAM) internal heap is exactly what
-// caused out-of-memory aborts during upload on non-PSRAM boards.
 struct OtaSlotFirmwareUpload {
     size_t size = 0;
     String variant;
