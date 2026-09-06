@@ -436,12 +436,12 @@ bool HM_Abstract::buildFirmwareLineIndex_unlocked()
             // whole (potentially large) image to be pointer-addressable in
             // RAM -- this is the no-PSRAM fallback source, so avoiding a full
             // in-memory copy is the entire point.
-            constexpr size_t chunkSize = 512;
-            uint8_t chunk[chunkSize];
+            constexpr size_t kChunkSize = 512;
+            uint8_t chunk[kChunkSize];
             uint32_t start = 0;
             uint32_t pos = 0;
             while (pos < _fwOtaLen) {
-                const size_t toRead = std::min(chunkSize, static_cast<size_t>(_fwOtaLen - pos));
+                const size_t toRead = std::min(kChunkSize, static_cast<size_t>(_fwOtaLen - pos));
                 if (esp_partition_read(_fwOtaPartition, pos, chunk, toRead) != ESP_OK) {
                     return false;
                 }
