@@ -14,7 +14,11 @@
 #include <esp_heap_caps.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
+#include <cinttypes>
 #include <cstring>
+
+#undef TAG
+static const char* TAG = "webapi";
 
 namespace {
 constexpr size_t MAX_FIRMWARE_UPLOAD_SIZE = 800 * 1024;
@@ -27,17 +31,33 @@ struct PsramFirmwareUploadBuffer {
 };
 
 PsramFirmwareUploadBuffer g_psramFirmwareUploadBuffer;
-std::vector<uint8_t> g_otaFirmwareUploadBuffer;
-String g_otaFirmwareUploadVariant;
+
+// OTA-slot fallback (used when no PSRAM is present): the image is written
+// straight to flash chunk-by-chunk and NEVER buffered in RAM -- keeping a
+// second full copy in the (tiny, no-PSRAM) internal heap is exactly what
+// caused out-of-memory aborts during upload on non-PSRAM boards.
+struct OtaSlotFirmwareUpload {
+    size_t size = 0;
+    String variant;
+};
+OtaSlotFirmwareUpload g_otaFirmwareUpload;
 
 const esp_partition_t* getInactiveFirmwarePartition()
 {
     const esp_partition_t* running = esp_ota_get_running_partition();
     if (running == nullptr) {
+        ESP_LOGE(TAG, "FW upload: could not determine running OTA partition");
         return nullptr;
     }
 
-    return esp_ota_get_next_update_partition(running);
+    const esp_partition_t* target = esp_ota_get_next_update_partition(running);
+    if (target == nullptr) {
+        ESP_LOGE(TAG, "FW upload: no inactive OTA partition available (running=\"%s\")", running->label);
+    } else {
+        ESP_LOGD(TAG, "FW upload: target inactive OTA partition \"%s\" (offset=0x%06" PRIx32 ", size=%" PRIu32 ")",
+            target->label, target->address, target->size);
+    }
+    return target;
 }
 
 String normalizeUploadPath(const String& value)
@@ -107,11 +127,14 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& v
     }
 
     if (g_psramFirmwareUploadBuffer.size + len > MAX_FIRMWARE_UPLOAD_SIZE) {
+        ESP_LOGE(TAG, "FW upload (PSRAM): total size would exceed %u bytes limit (have %u, +%u)",
+            static_cast<unsigned>(MAX_FIRMWARE_UPLOAD_SIZE), static_cast<unsigned>(g_psramFirmwareUploadBuffer.size), static_cast<unsigned>(len));
         return false;
     }
 
     if (g_psramFirmwareUploadBuffer.capacity < g_psramFirmwareUploadBuffer.size + len) {
         if (ESP.getPsramSize() == 0) {
+            ESP_LOGE(TAG, "FW upload (PSRAM): no PSRAM present, cannot grow buffer");
             return false;
         }
 
@@ -121,13 +144,18 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& v
         }
 
         if (ESP.getFreePsram() < newCapacity) {
+            ESP_LOGE(TAG, "FW upload (PSRAM): not enough free PSRAM (need %u, free %u)",
+                static_cast<unsigned>(newCapacity), static_cast<unsigned>(ESP.getFreePsram()));
             return false;
         }
 
         uint8_t* newBuffer = static_cast<uint8_t*>(heap_caps_malloc(newCapacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
         if (newBuffer == nullptr) {
+            ESP_LOGE(TAG, "FW upload (PSRAM): heap_caps_malloc(%u) failed", static_cast<unsigned>(newCapacity));
             return false;
         }
+        ESP_LOGD(TAG, "FW upload (PSRAM): grew buffer capacity %u -> %u bytes",
+            static_cast<unsigned>(g_psramFirmwareUploadBuffer.capacity), static_cast<unsigned>(newCapacity));
 
         if (g_psramFirmwareUploadBuffer.data != nullptr) {
             memcpy(newBuffer, g_psramFirmwareUploadBuffer.data, g_psramFirmwareUploadBuffer.size);
@@ -144,6 +172,8 @@ bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& v
 
     memcpy(g_psramFirmwareUploadBuffer.data + g_psramFirmwareUploadBuffer.size, data, len);
     g_psramFirmwareUploadBuffer.size += len;
+    ESP_LOGD(TAG, "FW upload (PSRAM): wrote chunk of %u bytes, total %u bytes",
+        static_cast<unsigned>(len), static_cast<unsigned>(g_psramFirmwareUploadBuffer.size));
     return true;
 }
 
@@ -179,6 +209,7 @@ void setFirmwareUploadVariant(const String& variant)
 
 void clearFirmwareUploadFromPsram()
 {
+    ESP_LOGD(TAG, "FW upload (PSRAM): clearing buffer (previous size %u)", static_cast<unsigned>(g_psramFirmwareUploadBuffer.size));
     if (g_psramFirmwareUploadBuffer.data != nullptr) {
         heap_caps_free(g_psramFirmwareUploadBuffer.data);
     }
@@ -192,7 +223,7 @@ bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const
 {
     if (data == nullptr || len == 0) {
         if (!variant.isEmpty()) {
-            g_otaFirmwareUploadVariant = variant;
+            g_otaFirmwareUpload.variant = variant;
         }
         return true;
     }
@@ -203,64 +234,66 @@ bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const
     }
 
     if (len > MAX_FIRMWARE_UPLOAD_SIZE) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): chunk of %u bytes exceeds %u bytes limit",
+            static_cast<unsigned>(len), static_cast<unsigned>(MAX_FIRMWARE_UPLOAD_SIZE));
         return false;
     }
 
-    if (g_otaFirmwareUploadBuffer.empty()) {
+    if (g_otaFirmwareUpload.size == 0) {
+        ESP_LOGD(TAG, "FW upload (OTA slot): erasing partition \"%s\" (%" PRIu32 " bytes)", partition->label, partition->size);
         const esp_err_t eraseResult = esp_partition_erase_range(partition, 0, partition->size);
         if (eraseResult != ESP_OK) {
+            ESP_LOGE(TAG, "FW upload (OTA slot): esp_partition_erase_range failed: %s", esp_err_to_name(eraseResult));
             return false;
         }
     }
 
-    if (g_otaFirmwareUploadBuffer.size() + len > partition->size) {
+    if (g_otaFirmwareUpload.size + len > partition->size) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): total size would exceed partition size %" PRIu32 " (have %u, +%u)",
+            partition->size, static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len));
         return false;
     }
 
-    const esp_err_t writeResult = esp_partition_write(partition, g_otaFirmwareUploadBuffer.size(), data, len);
+    const esp_err_t writeResult = esp_partition_write(partition, g_otaFirmwareUpload.size, data, len);
     if (writeResult != ESP_OK) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): esp_partition_write failed at offset %u, len %u: %s",
+            static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len), esp_err_to_name(writeResult));
         return false;
     }
 
     if (!variant.isEmpty()) {
-        g_otaFirmwareUploadVariant = variant;
+        g_otaFirmwareUpload.variant = variant;
     }
 
-    g_otaFirmwareUploadBuffer.insert(g_otaFirmwareUploadBuffer.end(), data, data + len);
+    g_otaFirmwareUpload.size += len;
+    ESP_LOGD(TAG, "FW upload (OTA slot): wrote chunk of %u bytes, total %u bytes",
+        static_cast<unsigned>(len), static_cast<unsigned>(g_otaFirmwareUpload.size));
     return true;
 }
 
-bool getFirmwareUploadFromInactiveOtaSlot(std::vector<uint8_t>& buffer)
+bool getFirmwareUploadInInactiveOtaSlot(const esp_partition_t*& outPartition, size_t& outLen)
 {
-    if (g_otaFirmwareUploadBuffer.empty()) {
+    if (g_otaFirmwareUpload.size == 0) {
+        outPartition = nullptr;
+        outLen = 0;
         return false;
     }
 
-    buffer = g_otaFirmwareUploadBuffer;
-    return true;
-}
-
-const uint8_t* peekFirmwareUploadInInactiveOtaSlot(size_t& outLen)
-{
-    if (g_otaFirmwareUploadBuffer.empty()) {
-        outLen = 0;
-        return nullptr;
-    }
-
-    outLen = g_otaFirmwareUploadBuffer.size();
-    return g_otaFirmwareUploadBuffer.data();
+    outPartition = getInactiveFirmwarePartition();
+    outLen = g_otaFirmwareUpload.size;
+    return outPartition != nullptr;
 }
 
 void clearFirmwareUploadFromInactiveOtaSlot()
 {
+    ESP_LOGD(TAG, "FW upload (OTA slot): clearing buffer (previous size %u)", static_cast<unsigned>(g_otaFirmwareUpload.size));
     const esp_partition_t* partition = getInactiveFirmwarePartition();
     if (partition != nullptr) {
         esp_partition_erase_range(partition, 0, partition->size);
     }
 
-    g_otaFirmwareUploadBuffer.clear();
-    g_otaFirmwareUploadBuffer.shrink_to_fit();
-    g_otaFirmwareUploadVariant.clear();
+    g_otaFirmwareUpload.size = 0;
+    g_otaFirmwareUpload.variant = String();
 }
 
 void WebApiFileClass::init(AsyncWebServer& server, Scheduler& scheduler)
@@ -421,6 +454,8 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         const bool useInactiveOtaSlot = name.startsWith("/firmware/") && ESP.getPsramSize() == 0;
         request->setAttribute("upload_use_psram", usePsram);
         request->setAttribute("upload_use_ota_slot", useInactiveOtaSlot);
+        ESP_LOGI(TAG, "FW upload: starting upload of \"%s\" -> \"%s\" (psram=%d, otaSlot=%d, psramSize=%u)",
+            fileParam.c_str(), name.c_str(), usePsram, useInactiveOtaSlot, static_cast<unsigned>(ESP.getPsramSize()));
 
         if (usePsram) {
             clearFirmwareUploadFromPsram();
@@ -443,12 +478,14 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
             }
         } else {
             if (name.length() == 0 || !ensureParentDirectories(name)) {
+                ESP_LOGE(TAG, "FW upload: invalid path or failed to create parent directories for \"%s\"", name.c_str());
                 request->send(500);
                 return;
             }
 
             request->_tempFile = LittleFS.open(name, "w");
             if (!request->_tempFile) {
+                ESP_LOGE(TAG, "FW upload: LittleFS.open(\"%s\", \"w\") failed", name.c_str());
                 request->send(500);
                 return;
             }
@@ -462,11 +499,13 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
     const bool useInactiveOtaSlot = request->getAttribute("upload_use_ota_slot", false);
 
     if (len) {
+        ESP_LOGD(TAG, "FW upload: chunk index=%u len=%u final=%d", static_cast<unsigned>(index), static_cast<unsigned>(len), final);
         if (usePsram) {
             String variant = getFirmwareUploadVariant();
             if (!writeFirmwareUploadToPsram(data, len, variant)) {
                 // Don't leave a partial image behind for a later request to
                 // mistake for a complete upload.
+                ESP_LOGE(TAG, "FW upload (PSRAM): write failed at index=%u len=%u, aborting upload", static_cast<unsigned>(index), static_cast<unsigned>(len));
                 clearFirmwareUploadFromPsram();
                 request->send(500);
                 return;
@@ -474,6 +513,7 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         } else if (useInactiveOtaSlot) {
             String variant = getFirmwareUploadVariant();
             if (!writeFirmwareUploadToInactiveOtaSlot(data, len, variant)) {
+                ESP_LOGE(TAG, "FW upload (OTA slot): write failed at index=%u len=%u, aborting upload", static_cast<unsigned>(index), static_cast<unsigned>(len));
                 clearFirmwareUploadFromInactiveOtaSlot();
                 request->send(500);
                 return;
@@ -488,15 +528,18 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         // Only reachable once every chunk, including this last one, was
         // written successfully -- onFileUploadFinish relies on this instead
         // of re-deriving success from the buffer/variant state.
+        ESP_LOGI(TAG, "FW upload (PSRAM): upload finished successfully, total %u bytes", static_cast<unsigned>(index + len));
         request->setAttribute("upload_psram_complete", true);
     }
 
     if (final && useInactiveOtaSlot) {
+        ESP_LOGI(TAG, "FW upload (OTA slot): upload finished successfully, total %u bytes", static_cast<unsigned>(index + len));
         request->setAttribute("upload_ota_slot_complete", true);
     }
 
     if (final && !usePsram && !useInactiveOtaSlot) {
         // close the file handle as the upload is now done
+        ESP_LOGI(TAG, "FW upload (LittleFS): upload finished successfully, total %u bytes", static_cast<unsigned>(index + len));
         request->_tempFile.close();
     }
 }
@@ -524,6 +567,8 @@ void WebApiFileClass::onFileUploadFinish(AsyncWebServerRequest* request)
             const bool psramComplete = request->getAttribute("upload_psram_complete", false);
             const bool otaSlotComplete = request->getAttribute("upload_ota_slot_complete", false);
             uploadSucceeded = psramComplete || otaSlotComplete;
+            ESP_LOGI(TAG, "FW upload: finish handler for \"%s\", success=%d (psramComplete=%d, otaSlotComplete=%d)",
+                name.c_str(), uploadSucceeded, psramComplete, otaSlotComplete);
         }
     }
 

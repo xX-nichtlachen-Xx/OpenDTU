@@ -5,6 +5,7 @@
 #include <TaskSchedulerDeclarations.h>
 #include <cstddef>
 #include <cstdint>
+#include <esp_partition.h>
 #include <vector>
 
 class WebApiFileClass {
@@ -31,6 +32,5 @@ void setFirmwareUploadVariant(const String& variant);
 void clearFirmwareUploadFromPsram();
 
 bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const String& variant = String());
-bool getFirmwareUploadFromInactiveOtaSlot(std::vector<uint8_t>& buffer);
-const uint8_t* peekFirmwareUploadInInactiveOtaSlot(size_t& outLen);
+bool getFirmwareUploadInInactiveOtaSlot(const esp_partition_t*& outPartition, size_t& outLen);
 void clearFirmwareUploadFromInactiveOtaSlot();

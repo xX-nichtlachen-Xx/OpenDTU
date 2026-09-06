@@ -12,6 +12,7 @@
 #include "types.h"
 #include <Arduino.h>
 #include <cstdint>
+#include <esp_partition.h>
 #include <list>
 #include <vector>
 
@@ -110,9 +111,10 @@ public:
     virtual bool resendPowerControlRequest() = 0;
     virtual bool sendChangeChannelRequest();
     virtual bool sendGridOnProFileParaRequest() = 0;
-    virtual bool sendFirmwareUpdateRequest(const String& littleFsPath,
-                                           const uint8_t* rawAscii,
-                                           const size_t rawAsciiLen) = 0;
+    virtual bool sendFirmwareUpdateRequest(const uint8_t* rawAscii,
+                                           const size_t rawAsciiLen,
+                                           const esp_partition_t* otaPartition = nullptr,
+                                           const size_t otaPartitionLen = 0) = 0;
     virtual bool getFirmwareUpdateRunning();
     virtual void abortFirmwareUpdateRequest();
     // Called for automatic failures (timeout/max attempts), distinct from a user-triggered abort.

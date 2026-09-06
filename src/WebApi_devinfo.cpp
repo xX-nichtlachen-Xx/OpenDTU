@@ -8,8 +8,8 @@
 #include "WebApi_file.h"
 #include <AsyncJson.h>
 #include <Hoymiles.h>
-#include <LittleFS.h>
 #include <ctime>
+#include <esp_partition.h>
 #include <vector>
 #include "utils/IntelHex.h"
 
@@ -181,17 +181,28 @@ bool parseHwModelChannelInfo(const String& hwModelName, bool& outIsThreePhase, u
 
 // Reads just the first line (up to '\n') of the firmware
 // source into `out`; `out` is NOT NUL-terminated, see outLen.
-bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const size_t rawAsciiLen, char* out, const size_t maxLen, size_t& outLen)
+bool readFirstFirmwareLine(const uint8_t* rawAscii, const size_t rawAsciiLen,
+                           const esp_partition_t* otaPartition, const size_t otaLen,
+                           char* out, const size_t maxLen, size_t& outLen)
 {
     outLen = 0;
 
-    if (fsPath.length() > 0) {
-        File f = LittleFS.open(fsPath, "r");
-        if (!f) {
-            return false;
+    if (otaPartition != nullptr && otaLen > 0) {
+        // Streams straight from flash one byte at a time -- this is only
+        // ever called for the short (<64 byte) identity row, so the extra
+        // esp_partition_read() call overhead per byte is negligible, and it
+        // avoids ever buffering the (potentially large) firmware image in RAM.
+        while (outLen < otaLen && outLen < maxLen) {
+            uint8_t b = 0;
+            if (esp_partition_read(otaPartition, outLen, &b, 1) != ESP_OK) {
+                break;
+            }
+            if (b == '\n') {
+                break;
+            }
+            out[outLen] = static_cast<char>(b);
+            ++outLen;
         }
-        outLen = f.readBytesUntil('\n', out, maxLen);
-        f.close();
         return outLen > 0;
     }
 
@@ -210,9 +221,10 @@ bool readFirstFirmwareLine(const String& fsPath, const uint8_t* rawAscii, const 
 // same hardware the inverter actually reported (looked up by serial via
 // kFirmwareSerialRules). Sets `outReason` on any failure (shown to the user).
 bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
-                                 const String& fsPath,
                                  const uint8_t* rawAscii,
                                  const size_t rawAsciiLen,
+                                 const esp_partition_t* otaPartition,
+                                 const size_t otaLen,
                                  String& outReason)
 {
     const String hwModelName = inv->typeName();
@@ -234,7 +246,7 @@ bool firmwareFileMatchesInverter(const std::shared_ptr<InverterAbstract>& inv,
 
     char lineAscii[64];
     size_t lineLen = 0;
-    if (!readFirstFirmwareLine(fsPath, rawAscii, rawAsciiLen, lineAscii, sizeof(lineAscii), lineLen)) {
+    if (!readFirstFirmwareLine(rawAscii, rawAsciiLen, otaPartition, otaLen, lineAscii, sizeof(lineAscii), lineLen)) {
         outReason = "Firmware file could not be read!";
         return false;
     }
@@ -292,14 +304,14 @@ String getFirmwareVariant(const std::shared_ptr<InverterAbstract>& inv)
 }
 
 // Picks the on-the-fly firmware source without decoding anything (other than
-// its first identity row, checked separately): either the persistent PSRAM
-// upload buffer (peeked without copy) or the uploaded .hex file on LittleFS.
-// HM_Abstract streams it row by row.
-bool pickFirmwareSource(String& outFsPath, const uint8_t*& outRawAscii, size_t& outRawAsciiLen)
+// its first identity row, checked separately): the persistent PSRAM upload
+bool pickFirmwareSource(const uint8_t*& outRawAscii, size_t& outRawAsciiLen,
+                        const esp_partition_t*& outOtaPartition, size_t& outOtaLen)
 {
-    outFsPath = String();
     outRawAscii = nullptr;
     outRawAsciiLen = 0;
+    outOtaPartition = nullptr;
+    outOtaLen = 0;
 
     size_t psramLen = 0;
     const uint8_t* psramPtr = peekFirmwareUploadInPsram(psramLen);
@@ -309,20 +321,12 @@ bool pickFirmwareSource(String& outFsPath, const uint8_t*& outRawAscii, size_t& 
         return true;
     }
 
+    const esp_partition_t* otaPartition = nullptr;
     size_t otaLen = 0;
-    const uint8_t* otaPtr = peekFirmwareUploadInInactiveOtaSlot(otaLen);
-    if (otaPtr != nullptr && otaLen > 0) {
-        outRawAscii = otaPtr;
-        outRawAsciiLen = otaLen;
+    if (getFirmwareUploadInInactiveOtaSlot(otaPartition, otaLen)) {
+        outOtaPartition = otaPartition;
+        outOtaLen = otaLen;
         return true;
-    }
-
-    static const char* const candidatePaths[] = { "/firmware/uploaded.hex", "/littlefs/firmware/uploaded.hex" };
-    for (const char* path : candidatePaths) {
-        if (LittleFS.exists(path)) {
-            outFsPath = path;
-            return true;
-        }
     }
 
     return false;
@@ -395,10 +399,11 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
         return;
     }
 
-    String fsPath;
     const uint8_t* rawAscii = nullptr;
     size_t rawAsciiLen = 0;
-    if (!pickFirmwareSource(fsPath, rawAscii, rawAsciiLen)) {
+    const esp_partition_t* otaPartition = nullptr;
+    size_t otaLen = 0;
+    if (!pickFirmwareSource(rawAscii, rawAsciiLen, otaPartition, otaLen)) {
         retMsg["type"] = "danger";
         retMsg["message"] = "No firmware image has been uploaded!";
         retMsg["code"] = WebApiError::GenericInternalServerError;
@@ -407,7 +412,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
     }
 
     String mismatchReason;
-    if (!firmwareFileMatchesInverter(inv, fsPath, rawAscii, rawAsciiLen, mismatchReason)) {
+    if (!firmwareFileMatchesInverter(inv, rawAscii, rawAsciiLen, otaPartition, otaLen, mismatchReason)) {
         retMsg["type"] = "danger";
         retMsg["message"] = mismatchReason;
         retMsg["code"] = WebApiError::GenericInternalServerError;
@@ -415,7 +420,7 @@ void WebApiDevInfoClass::onFirmwareUpdateStart(AsyncWebServerRequest* request)
         return;
     }
 
-    if (!inv->sendFirmwareUpdateRequest(fsPath, rawAscii, rawAsciiLen)) {
+    if (!inv->sendFirmwareUpdateRequest(rawAscii, rawAsciiLen, otaPartition, otaLen)) {
         retMsg["type"] = "danger";
         retMsg["message"] = "Update could not be started!";
         retMsg["code"] = WebApiError::GenericInternalServerError;

@@ -15,7 +15,6 @@
 #include "commands/RealTimeRunDataCommand.h"
 #include "commands/SystemConfigParaCommand.h"
 #include "utils/IntelHex.h"
-#include <LittleFS.h>
 #include <algorithm>
 #include <cstring>
 #include <esp_heap_caps.h>
@@ -202,17 +201,18 @@ bool HM_Abstract::sendGridOnProFileParaRequest()
     return true;
 }
 
-bool HM_Abstract::sendFirmwareUpdateRequest(const String& littleFsPath,
-                                            const uint8_t* rawAscii,
-                                            const size_t rawAsciiLen)
+bool HM_Abstract::sendFirmwareUpdateRequest(const uint8_t* rawAscii,
+                                            const size_t rawAsciiLen,
+                                            const esp_partition_t* otaPartition,
+                                            const size_t otaPartitionLen)
 {
     if (!getEnableCommands()) {
         return false;
     }
 
-    const bool hasFileSource = littleFsPath.length() > 0;
     const bool hasPsramSource = (rawAscii != nullptr && rawAsciiLen > 0);
-    if (hasFileSource == hasPsramSource) {
+    const bool hasOtaSource = (otaPartition != nullptr && otaPartitionLen > 0);
+    if (hasPsramSource == hasOtaSource) {
         return false; // must have exactly one source
     }
 
@@ -230,9 +230,10 @@ bool HM_Abstract::sendFirmwareUpdateRequest(const String& littleFsPath,
         std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
         closeFirmwareSource_unlocked();
 
-        _fwFsPath = hasFileSource ? littleFsPath : String();
-        _fwPsramAscii = hasFileSource ? nullptr : rawAscii;
-        _fwPsramAsciiLen = hasFileSource ? 0 : rawAsciiLen;
+        _fwPsramAscii = hasPsramSource ? rawAscii : nullptr;
+        _fwPsramAsciiLen = hasPsramSource ? rawAsciiLen : 0;
+        _fwOtaPartition = hasOtaSource ? otaPartition : nullptr;
+        _fwOtaLen = hasOtaSource ? otaPartitionLen : 0;
 
         if (!buildFirmwareLineIndex_unlocked() || _fwLineCount == 0) {
             closeFirmwareSource_unlocked();
@@ -430,30 +431,33 @@ bool HM_Abstract::buildFirmwareLineIndex_unlocked()
     // in one shot in PSRAM.
     size_t count = 0;
     auto forEachLine = [&](auto&& emit) -> bool {
-        if (!_fwFsPath.isEmpty()) {
-            File file = LittleFS.open(_fwFsPath, "r");
-            if (!file) {
-                return false;
-            }
+        if (_fwOtaPartition != nullptr && _fwOtaLen > 0) {
+            // Streams straight from flash in chunks instead of requiring the
+            // whole (potentially large) image to be pointer-addressable in
+            // RAM -- this is the no-PSRAM fallback source, so avoiding a full
+            // in-memory copy is the entire point.
+            constexpr size_t chunkSize = 512;
+            uint8_t chunk[chunkSize];
             uint32_t start = 0;
             uint32_t pos = 0;
-            while (file.available()) {
-                const int c = file.read();
-                if (c < 0) {
-                    break;
+            while (pos < _fwOtaLen) {
+                const size_t toRead = std::min(chunkSize, static_cast<size_t>(_fwOtaLen - pos));
+                if (esp_partition_read(_fwOtaPartition, pos, chunk, toRead) != ESP_OK) {
+                    return false;
                 }
-                ++pos;
-                if (c == '\n') {
-                    if (pos - 1 > start) {
-                        emit(start, static_cast<uint16_t>(pos - 1 - start));
+                for (size_t i = 0; i < toRead; ++i) {
+                    ++pos;
+                    if (chunk[i] == '\n') {
+                        if (pos - 1 > start) {
+                            emit(start, static_cast<uint16_t>(pos - 1 - start));
+                        }
+                        start = pos;
                     }
-                    start = pos;
                 }
             }
             if (pos > start) {
                 emit(start, static_cast<uint16_t>(pos - start));
             }
-            file.close();
             return true;
         }
 
@@ -524,15 +528,12 @@ bool HM_Abstract::readFirmwareLineAscii_unlocked(size_t index, char* out, size_t
         return false;
     }
 
-    if (!_fwFsPath.isEmpty()) {
-        File file = LittleFS.open(_fwFsPath, "r");
-        if (!file) {
+    if (_fwOtaPartition != nullptr) {
+        const uint32_t off = _fwLineOffsets[index];
+        if (static_cast<size_t>(off) + len > _fwOtaLen) {
             return false;
         }
-        file.seek(_fwLineOffsets[index]);
-        const size_t got = file.readBytes(out, len);
-        file.close();
-        if (got != len) {
+        if (esp_partition_read(_fwOtaPartition, off, out, len) != ESP_OK) {
             return false;
         }
     } else if (_fwPsramAscii != nullptr) {
@@ -561,9 +562,10 @@ void HM_Abstract::closeFirmwareSource_unlocked()
     }
     _fwLineCount = 0;
     _fwNextLineIndex = 0;
-    _fwFsPath = String();
     _fwPsramAscii = nullptr;
     _fwPsramAsciiLen = 0;
+    _fwOtaPartition = nullptr;
+    _fwOtaLen = 0;
 }
 
 bool HM_Abstract::supportsPowerDistributionLogic()

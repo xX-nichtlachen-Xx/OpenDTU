@@ -5,6 +5,7 @@
 #include <Arduino.h>
 #include <cstddef>
 #include <cstdint>
+#include <esp_partition.h>
 #include <mutex>
 #include <vector>
 
@@ -21,9 +22,10 @@ public:
     bool sendRestartControlRequest();
     bool resendPowerControlRequest();
     bool sendGridOnProFileParaRequest();
-    bool sendFirmwareUpdateRequest(const String& littleFsPath,
-                                   const uint8_t* rawAscii,
-                                   const size_t rawAsciiLen) override;
+    bool sendFirmwareUpdateRequest(const uint8_t* rawAscii,
+                                   const size_t rawAsciiLen,
+                                   const esp_partition_t* otaPartition = nullptr,
+                                   const size_t otaPartitionLen = 0) override;
     bool getFirmwareUpdateRunning() override;
     void abortFirmwareUpdateRequest() override;
     void failFirmwareUpdateRequest() override;
@@ -45,9 +47,10 @@ private:
     uint8_t _lastAlarmLogCnt = 0;
     uint8_t _powerState = 1;
 
-    String _fwFsPath;                          // non-empty: read from LittleFS
     const uint8_t* _fwPsramAscii = nullptr;    // non-null: raw ASCII source
     size_t _fwPsramAsciiLen = 0;
+    const esp_partition_t* _fwOtaPartition = nullptr; // non-null: stream-read from flash (no-PSRAM fallback)
+    size_t _fwOtaLen = 0;
     uint32_t* _fwLineOffsets = nullptr;        // byte offset per Intel-Hex line
     uint16_t* _fwLineLengths = nullptr;        // ASCII length per line
     size_t _fwLineCount = 0;
