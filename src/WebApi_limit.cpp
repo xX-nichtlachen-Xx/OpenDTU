@@ -32,8 +32,14 @@ void WebApiLimitClass::onLimitStatus(AsyncWebServerRequest* request)
 
         String serial = inv->serialString();
 
+        const INVERTER_CONFIG_T* inv_cfg = Configuration.getInverterConfig(inv->serial());
+        uint16_t maxPower = inv->DevInfo()->getMaxPower();
+        if (inv_cfg != nullptr && inv_cfg->MaxPower > 0) {
+            maxPower = inv_cfg->MaxPower;
+        }
+        
         root[serial]["limit_relative"] = inv->SystemConfigPara()->getLimitPercent();
-        root[serial]["max_power"] = inv->DevInfo()->getMaxPower();
+        root[serial]["max_power"] = maxPower;
 
         LastCommandSuccess status = inv->SystemConfigPara()->getLastLimitCommandSuccess();
         String limitStatus = "Unknown";

@@ -574,7 +574,10 @@
         "DeleteMsg": "Soll der Wechselrichter \"{name}\" mit der Seriennummer {serial} wirklich gelöscht werden?",
         "Delete": "Löschen",
         "YieldDayCorrection": "Tagesertragskorrektur",
-        "YieldDayCorrectionHint": "Summiert den Tagesertrag, auch wenn der Wechselrichter neu gestartet wird. Der Wert wird um Mitternacht zurückgesetzt"
+        "YieldDayCorrectionHint": "Summiert den Tagesertrag, auch wenn der Wechselrichter neu gestartet wird. Der Wert wird um Mitternacht zurückgesetzt",
+        "InverterMaxPower": "Benutzerdefinierte maximale Leistung",
+        "InverterMaxPowerHint": "Optional: Legen Sie eine benutzerdefinierte maximale Leistung für diesen Wechselrichter fest. Wenn nichts eingegeben oder Null, wird die nominale Maximalleistung des Geräts verwendet."
+   
     },
     "fileadmin": {
         "ConfigManagement": "Konfigurationsverwaltung",
