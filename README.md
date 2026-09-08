@@ -1,8 +1,8 @@
 # OpenDTU with Hoymiles HM / HMS / HMT Inverter Firmware Update Function / Updater
 
-###############################################################################################################################
+###########################################################################################################
 The August / September Hoymiles security updates have not been released and are not available yet!
-###############################################################################################################################
+###########################################################################################################
 Update your HM / HMS / HMT inverter firmware.
 Can be used as an alternative to the original Hoymiles DTU for updating inverter firmware.
 The Hoymiles DTU/Cloud itself is neither involved nor required.
