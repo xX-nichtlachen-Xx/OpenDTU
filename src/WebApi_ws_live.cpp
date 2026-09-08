@@ -271,8 +271,12 @@ void WebApiWsLiveClass::generateInverterCommonJsonResponse(JsonObject& root, std
     root["reachable"] = inv->isReachable();
     root["producing"] = inv->isProducing();
     root["limit_relative"] = inv->SystemConfigPara()->getLimitPercent();
-    if (inv->DevInfo()->getMaxPower() > 0) {
-        root["limit_absolute"] = inv->SystemConfigPara()->getLimitPercent() * inv->DevInfo()->getMaxPower() / 100.0;
+    uint16_t maxPower = inv->DevInfo()->getMaxPower();
+    if (inv_cfg != nullptr && inv_cfg->MaxPower > 0) {
+        maxPower = inv_cfg->MaxPower;
+    }
+    if (maxPower > 0) {
+        root["limit_absolute"] = inv->SystemConfigPara()->getLimitPercent() * maxPower / 100.0;
     } else {
         root["limit_absolute"] = -1;
     }

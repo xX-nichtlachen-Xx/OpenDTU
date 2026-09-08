@@ -727,8 +727,6 @@
         "TotalUpperPowerLimitHint": "The inverters are configured to output this maximum amount of power in total.",
         "UpperPowerLimit": "Maximum Power Limit",
         "UpperPowerLimitHint": "The inverter is always set such that no more than this output power is achieved. This value must be selected to comply with the current carrying capacity of the AC connection cables.",
-        "InverterMaxPower": "Custom Maximum Power",
-        "InverterMaxPowerHint": "Optional: Set a custom maximum power for this inverter. If left empty or zero, the device's rated maximum power will be used.",
         "AllowStandby": "Allow Standby",
         "AllowStandbyHint": "Allow the inverter to go into standby if the calculated power limit is below the minimum power limit.",
         "SocThresholds": "Battery State of Charge (SoC) Thresholds",
@@ -893,7 +891,9 @@
         "DeleteMsg": "Are you sure you want to delete the inverter \"{name}\" with serial number {serial}?",
         "Delete": "Delete",
         "YieldDayCorrection": "Yield Day Correction",
-        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight"
+        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight",
+        "InverterMaxPower": "Custom Maximum Power",
+        "InverterMaxPowerHint": "Optional: Set a custom maximum power for this inverter. If left empty or zero, the device's rated maximum power will be used."
     },
     "fileadmin": {
         "ConfigManagement": "Config Management",
