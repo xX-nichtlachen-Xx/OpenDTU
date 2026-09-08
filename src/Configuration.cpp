@@ -226,7 +226,6 @@ void ConfigurationClass::serializePowerLimiterConfig(PowerLimiterConfig const& s
         t["allow_standby"] = s.AllowStandby;
         t["lower_power_limit"] = s.LowerPowerLimit;
         t["upper_power_limit"] = s.UpperPowerLimit;
-        t["max_power"] = s.MaxPower;
     }
 }
 
@@ -386,6 +385,7 @@ bool ConfigurationClass::write()
         inv["zero_day"] = config.Inverter[i].ZeroYieldDayOnMidnight;
         inv["clear_eventlog"] = config.Inverter[i].ClearEventlogOnMidnight;
         inv["yieldday_correction"] = config.Inverter[i].YieldDayCorrection;
+        inv["max_power"] = config.Inverter[i].MaxPower;
 
         JsonArray channel = inv["channel"].to<JsonArray>();
         for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
@@ -655,7 +655,6 @@ void ConfigurationClass::deserializePowerLimiterConfig(JsonObject const& source,
         inv.AllowStandby = s["allow_standby"] | POWERLIMITER_ALLOW_STANDBY;
         inv.LowerPowerLimit = s["lower_power_limit"] | POWERLIMITER_LOWER_POWER_LIMIT;
         inv.UpperPowerLimit = s["upper_power_limit"] | POWERLIMITER_UPPER_POWER_LIMIT;
-        inv.MaxPower = s["max_power"] | 0;
     }
 }
 
@@ -868,6 +867,7 @@ bool ConfigurationClass::read()
         config.Inverter[i].ZeroYieldDayOnMidnight = inv["zero_day"] | false;
         config.Inverter[i].ClearEventlogOnMidnight = inv["clear_eventlog"] | false;
         config.Inverter[i].YieldDayCorrection = inv["yieldday_correction"] | false;
+        config.Inverter[i].MaxPower = inv["max_power"] | 0;
 
         JsonArray channel = inv["channel"];
         for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
@@ -1263,6 +1263,7 @@ void ConfigurationClass::deleteInverterById(const uint8_t id)
     config.Inverter[id].ZeroRuntimeDataIfUnrechable = false;
     config.Inverter[id].ZeroYieldDayOnMidnight = false;
     config.Inverter[id].YieldDayCorrection = false;
+    config.Inverter[id].MaxPower = 0;
 
     for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
         config.Inverter[id].channel[c].MaxChannelPower = 0;

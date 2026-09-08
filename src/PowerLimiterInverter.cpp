@@ -299,9 +299,9 @@ std::optional<uint32_t> PowerLimiterInverter::getLatestStatsMillis() const
 
 uint16_t PowerLimiterInverter::getInverterMaxPowerWatts() const
 {
-    // If a custom max power was configured for this inverter, prefer it.
-    if (_config.MaxPower > 0) {
-        return _config.MaxPower;
+    auto const* inverterConfig = Configuration.getInverterConfig(_config.Serial);
+    if (inverterConfig != nullptr && inverterConfig->MaxPower > 0) {
+        return inverterConfig->MaxPower;
     }
 
     return _spInverter->DevInfo()->getMaxPower();
