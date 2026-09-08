@@ -1,3 +1,10 @@
+
+# Set Custom Inverter Maximum Power Limit (No Inverter Tuning) 
+
+[Manual/ Discussion](https://github.com/tbnobody/OpenDTU/discussions/3215)
+
+
+
 # OpenDTU
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
