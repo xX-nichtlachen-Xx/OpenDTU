@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2022-2025 Thomas Basler and others
+ * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "MqttHandleDtu.h"
 #include "Configuration.h"
@@ -39,6 +39,14 @@ void MqttHandleDtuClass::loop()
     MqttSettings.publish("dtu/heap/free", String(ESP.getFreeHeap()));
     MqttSettings.publish("dtu/heap/minfree", String(ESP.getMinFreeHeap()));
     MqttSettings.publish("dtu/heap/maxalloc", String(ESP.getMaxAllocHeap()));
+
+    if (ESP.getPsramSize() > 0) {
+        MqttSettings.publish("dtu/psram/size", String(ESP.getPsramSize()));
+        MqttSettings.publish("dtu/psram/free", String(ESP.getFreePsram()));
+        MqttSettings.publish("dtu/psram/minfree", String(ESP.getMinFreePsram()));
+        MqttSettings.publish("dtu/psram/maxalloc", String(ESP.getMaxAllocPsram()));
+    }
+
     if (NetworkSettings.NetworkMode() == network_mode::WiFi) {
         MqttSettings.publish("dtu/rssi", String(WiFi.RSSI()));
         MqttSettings.publish("dtu/bssid", WiFi.BSSIDstr());

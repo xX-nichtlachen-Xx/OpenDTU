@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2022-2025 Thomas Basler and others
+ * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "WebApi_sysstatus.h"
 #include "Configuration.h"
@@ -14,12 +14,13 @@
 #include <Hoymiles.h>
 #include <LittleFS.h>
 #include <ResetReason.h>
+#include "RuntimeData.h"
 
 void WebApiSysstatusClass::init(AsyncWebServer& server, Scheduler& scheduler)
 {
     using std::placeholders::_1;
 
-    server.on("/api/system/status", HTTP_GET, std::bind(&WebApiSysstatusClass::onSystemStatus, this, _1));
+    server.on("/api/system/status", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiSysstatusClass::onSystemStatus, this, _1)));
 }
 
 void WebApiSysstatusClass::onSystemStatus(AsyncWebServerRequest* request)
@@ -41,8 +42,12 @@ void WebApiSysstatusClass::onSystemStatus(AsyncWebServerRequest* request)
     root["heap_used"] = ESP.getHeapSize() - ESP.getFreeHeap();
     root["heap_max_block"] = ESP.getMaxAllocHeap();
     root["heap_min_free"] = ESP.getMinFreeHeap();
+
     root["psram_total"] = ESP.getPsramSize();
     root["psram_used"] = ESP.getPsramSize() - ESP.getFreePsram();
+    root["psram_max_block"] = ESP.getMaxAllocPsram();
+    root["psram_min_free"] = ESP.getMinFreePsram();
+
     root["sketch_total"] = ESP.getFreeSketchSpace();
     root["sketch_used"] = ESP.getSketchSize();
     root["littlefs_total"] = LittleFS.totalBytes();
@@ -79,6 +84,7 @@ void WebApiSysstatusClass::onSystemStatus(AsyncWebServerRequest* request)
     root["resetreason_1"] = reason;
 
     root["cfgsavecount"] = Configuration.get().Cfg.SaveCount;
+    root["runtime_savecount"] = RuntimeData.getWriteCountAndTimeString();
 
     char version[16];
     snprintf(version, sizeof(version), "%d.%d.%d", CONFIG_VERSION >> 24 & 0xff, CONFIG_VERSION >> 16 & 0xff, CONFIG_VERSION >> 8 & 0xff);

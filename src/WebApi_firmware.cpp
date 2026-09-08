@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2022-2025 Thomas Basler and others
+ * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "WebApi_firmware.h"
 #include "Configuration.h"
@@ -10,6 +10,7 @@
 #include <AsyncJson.h>
 #include <Update.h>
 #include "esp_partition.h"
+#include "RuntimeData.h"
 
 void WebApiFirmwareClass::init(AsyncWebServer& server, Scheduler& scheduler)
 {
@@ -24,7 +25,7 @@ void WebApiFirmwareClass::init(AsyncWebServer& server, Scheduler& scheduler)
         std::bind(&WebApiFirmwareClass::onFirmwareUpdateFinish, this, _1),
         std::bind(&WebApiFirmwareClass::onFirmwareUpdateUpload, this, _1, _2, _3, _4, _5, _6));
 
-    server.on("/api/firmware/status", HTTP_GET, std::bind(&WebApiFirmwareClass::onFirmwareStatus, this, _1));
+    server.on("/api/firmware/status", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiFirmwareClass::onFirmwareStatus, this, _1)));
 }
 
 bool WebApiFirmwareClass::otaSupported() const
@@ -47,6 +48,9 @@ void WebApiFirmwareClass::onFirmwareUpdateFinish(AsyncWebServerRequest* request)
     response->addHeader(asyncsrv::T_Connection, asyncsrv::T_close);
     response->addHeader(asyncsrv::T_CORS_ACAO, "*");
     request->send(response);
+
+    // write the runtime data to LittleFS, but do not write if last write operation was less than 10 min ago
+    RuntimeData.write(10);
     RestartHelper.triggerRestart();
 }
 

@@ -19,7 +19,6 @@
 #define SYSLOG_MAX_HOSTNAME_STRLEN 128
 
 #define NTP_MAX_SERVER_STRLEN 31
-#define NTP_MAX_TIMEZONE_STRLEN 50
 #define NTP_MAX_TIMEZONEDESCR_STRLEN 50
 
 #define MQTT_MAX_HOSTNAME_STRLEN 128
@@ -52,7 +51,11 @@
 #define POWERMETER_MQTT_MAX_VALUES 3
 #define POWERMETER_HTTP_JSON_MAX_VALUES 3
 
-#define ZENDURE_MAX_SERIAL_STRLEN 8
+#define ZENDURE_MAX_SERIAL_STRLEN   8
+#define ZENDURE_MAX_SERVER_STRLEN   256
+#define ZENDURE_MAX_CLIENTID_STRLEN 23
+#define ZENDURE_MAX_SECRET_STRLEN   32
+#define ZENDURE_MAX_APPKEY_STRLEN   16
 
 struct CHANNEL_CONFIG_T {
     uint16_t MaxChannelPower;
@@ -184,17 +187,19 @@ struct POWERLIMITER_CONFIG_T {
 using PowerLimiterConfig = struct POWERLIMITER_CONFIG_T;
 
 struct BATTERY_ZENDURE_CONFIG_T {
-    uint8_t DeviceType;
+    enum DeviceType_t : uint8_t { HUB1200 = 0, HUB2000 = 1, AIO2400 = 2, ACE1500 = 3, HYPER2000_A = 4, HYPER2000_B = 5, HYPER2000 = 6 };
+    DeviceType_t DeviceType;
     char DeviceId[ZENDURE_MAX_SERIAL_STRLEN + 1];
     uint8_t PollingInterval;
     uint8_t MinSoC;
     uint8_t MaxSoC;
-    uint8_t BypassMode;
+    enum BypassMode_t : uint8_t { Automatic = 0, AlwaysOff = 1, AlwaysOn = 2 };
+    BypassMode_t BypassMode;
     uint16_t MaxOutput;
     bool AutoShutdown;
     uint16_t OutputLimit;
-    enum ZendureBatteryOutputControl { ControlNone = 0, ControlFixed = 1, ControlSchedule = 2 };
-    ZendureBatteryOutputControl OutputControl;
+    enum OutputControl_t : uint8_t { ControlNone = 0, ControlFixed = 1, ControlSchedule = 2 };
+    OutputControl_t OutputControl;
     int16_t SunriseOffset;
     int16_t SunsetOffset;
     uint16_t OutputLimitDay;
@@ -202,9 +207,18 @@ struct BATTERY_ZENDURE_CONFIG_T {
     bool ChargeThroughEnable;
     uint16_t ChargeThroughInterval;
     bool BuzzerEnable;
-    enum ControlMode { ControlModeFull = 0, ControlModeOnce = 1, ControlModeReadOnly = 2 };
+    enum ControlMode : uint8_t { ControlModeFull = 0, ControlModeOnce = 1, ControlModeReadOnly = 2 };
     ControlMode ControlMode;
-    uint8_t ChargeThroughResetLevel;
+    uint16_t ChargeThroughKeepMinutes;
+    enum ConnectionType_t { LocalMqtt = 0, ZendureMqtt = 1 };
+    ConnectionType_t ConnectionType;
+    char Server[ZENDURE_MAX_SERVER_STRLEN + 1];
+    uint16_t Port;
+    char ClientId[ZENDURE_MAX_CLIENTID_STRLEN + 1];
+    char AppKey[ZENDURE_MAX_APPKEY_STRLEN + 1];
+    char Secret[ZENDURE_MAX_SECRET_STRLEN + 1];
+    bool BatteryProtectionEnable;
+    uint8_t BatteryProtectionHysteresis;
 };
 using BatteryZendureConfig = struct BATTERY_ZENDURE_CONFIG_T;
 
@@ -222,6 +236,9 @@ struct BATTERY_MQTT_CONFIG_T {
     char DischargeCurrentLimitTopic[MQTT_MAX_TOPIC_STRLEN + 1];
     char DischargeCurrentLimitJsonPath[MQTT_MAX_JSON_PATH_STRLEN + 1];
     BatteryAmperageUnit DischargeCurrentLimitUnit;
+    char ChargeCurrentLimitTopic[MQTT_MAX_TOPIC_STRLEN + 1];
+    char ChargeCurrentLimitJsonPath[MQTT_MAX_JSON_PATH_STRLEN + 1];
+    BatteryAmperageUnit ChargeCurrentLimitUnit;
 };
 using BatteryMqttConfig = struct BATTERY_MQTT_CONFIG_T;
 
@@ -242,6 +259,12 @@ struct BATTERY_CONFIG_T {
     float DischargeCurrentLimitBelowSoc;
     float DischargeCurrentLimitBelowVoltage;
     bool UseBatteryReportedDischargeCurrentLimit;
+    bool EnableChargeCurrentLimit;
+    float MaxChargeCurrentLimit;
+    float MinChargeCurrentLimit;
+    float ChargeCurrentLimitBelowSoc;
+    float ChargeCurrentLimitBelowVoltage;
+    bool UseBatteryReportedChargeCurrentLimit;
 };
 using BatteryConfig = struct BATTERY_CONFIG_T;
 
@@ -312,6 +335,7 @@ using SolarChargerMqttConfig = struct SOLARCHARGER_MQTT_CONFIG_T;
 struct SOLAR_CHARGER_CONFIG_T {
     bool Enabled;
     bool PublishUpdatesOnly;
+    bool ForwardBatteryData;
     SolarChargerProviderType Provider;
     SolarChargerMqttConfig Mqtt;
 };
@@ -349,7 +373,6 @@ struct CONFIG_T {
 
     struct {
         char Server[NTP_MAX_SERVER_STRLEN + 1];
-        char Timezone[NTP_MAX_TIMEZONE_STRLEN + 1];
         char TimezoneDescr[NTP_MAX_TIMEZONEDESCR_STRLEN + 1];
         double Longitude;
         double Latitude;
@@ -483,16 +506,16 @@ public:
 
     int8_t getIndexForLogModule(const String& moduleName) const;
 
-    static void serializeHttpRequestConfig(HttpRequestConfig const& source, JsonObject& target);
+    static void serializeHttpRequestConfig(HttpRequestConfig const& source, JsonObject& target, bool includeCredentials);
     static void serializeSolarChargerConfig(SolarChargerConfig const& source, JsonObject& target);
     static void serializeSolarChargerMqttConfig(SolarChargerMqttConfig const& source, JsonObject& target);
     static void serializePowerMeterMqttConfig(PowerMeterMqttConfig const& source, JsonObject& target);
     static void serializePowerMeterSerialSdmConfig(PowerMeterSerialSdmConfig const& source, JsonObject& target);
-    static void serializePowerMeterHttpJsonConfig(PowerMeterHttpJsonConfig const& source, JsonObject& target);
-    static void serializePowerMeterHttpSmlConfig(PowerMeterHttpSmlConfig const& source, JsonObject& target);
+    static void serializePowerMeterHttpJsonConfig(PowerMeterHttpJsonConfig const& source, JsonObject& target, bool includeCredentials);
+    static void serializePowerMeterHttpSmlConfig(PowerMeterHttpSmlConfig const& source, JsonObject& target, bool includeCredentials);
     static void serializePowerMeterUdpVictronConfig(PowerMeterUdpVictronConfig const& source, JsonObject& target);
     static void serializeBatteryConfig(BatteryConfig const& source, JsonObject& target);
-    static void serializeBatteryZendureConfig(BatteryZendureConfig const& source, JsonObject& target);
+    static void serializeBatteryZendureConfig(BatteryZendureConfig const& source, JsonObject& target, bool includeCredentials);
     static void serializeBatteryMqttConfig(BatteryMqttConfig const& source, JsonObject& target);
     static void serializeBatterySerialConfig(BatterySerialConfig const& source, JsonObject& target);
     static void serializePowerLimiterConfig(PowerLimiterConfig const& source, JsonObject& target);

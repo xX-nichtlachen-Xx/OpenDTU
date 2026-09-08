@@ -54,11 +54,11 @@ export default defineConfig({
         comments: false,
       },
     },
-    chunkSizeWarningLimit: 1024,
+    chunkSizeWarningLimit: 1536,
     rollupOptions: {
       output: {
         // Only create one js file
-        inlineDynamicImports: true,
+        codeSplitting: false,
         // Get rid of hash on js file
         entryFileNames: 'js/app.js',
         // Get rid of hash on css file
@@ -73,6 +73,7 @@ export default defineConfig({
         // Required to make bootstrap compile without errors
         silenceDeprecations: [
           'import',
+          'if-function',
           'color-functions',
           'global-builtin',
         ],

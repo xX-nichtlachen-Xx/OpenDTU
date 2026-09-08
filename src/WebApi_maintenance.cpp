@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2022-2024 Thomas Basler and others
+ * Copyright (C) 2022-2026 Thomas Basler and others
  */
 
 #include "WebApi_maintenance.h"
@@ -8,12 +8,13 @@
 #include "WebApi.h"
 #include "WebApi_errors.h"
 #include <AsyncJson.h>
+#include "RuntimeData.h"
 
 void WebApiMaintenanceClass::init(AsyncWebServer& server, Scheduler& scheduler)
 {
     using std::placeholders::_1;
 
-    server.on("/api/maintenance/reboot", HTTP_POST, std::bind(&WebApiMaintenanceClass::onRebootPost, this, _1));
+    server.on("/api/maintenance/reboot", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiMaintenanceClass::onRebootPost, this, _1)));
 }
 
 void WebApiMaintenanceClass::onRebootPost(AsyncWebServerRequest* request)
@@ -43,6 +44,9 @@ void WebApiMaintenanceClass::onRebootPost(AsyncWebServerRequest* request)
         retMsg["code"] = WebApiError::MaintenanceRebootTriggered;
 
         WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+
+        // write the runtime data to LittleFS, but do not write if last write operation was less than 10 min ago
+        RuntimeData.write(10);
         RestartHelper.triggerRestart();
     } else {
         retMsg["message"] = "Reboot cancled!";

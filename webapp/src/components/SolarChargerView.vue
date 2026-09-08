@@ -12,8 +12,8 @@
                     <div
                         class="card-header d-flex justify-content-between align-items-center"
                         :class="{
-                            'text-bg-danger': item.data_age_ms >= 10000,
-                            'text-bg-success': item.data_age_ms < 10000,
+                            'text-bg-danger': item.data_age_ms >= item.max_age_ms,
+                            'text-bg-success': item.data_age_ms < item.max_age_ms,
                         }"
                     >
                         <div class="p-1 flex-grow-1">
@@ -123,6 +123,7 @@ import type { DynamicPowerLimiter, SolarCharger } from '@/types/SolarChargerLive
 import { handleResponse, authHeader, authUrl } from '@/utils/authentication';
 import { BIconSun, BIconBatteryCharging, BIconBatteryHalf, BIconXCircleFill } from 'bootstrap-icons-vue';
 import DataAgeDisplay from '@/components/DataAgeDisplay.vue';
+import WebSocketService from '@/utils/websocketService';
 
 export default defineComponent({
     components: {
@@ -134,7 +135,7 @@ export default defineComponent({
     },
     data() {
         return {
-            socket: {} as WebSocket,
+            socket: {} as WebSocketService,
             heartInterval: 0,
             dataAgeTimers: {} as Record<string, number>,
             dataLoading: true,
@@ -148,7 +149,9 @@ export default defineComponent({
         this.initSocket();
     },
     unmounted() {
-        this.closeSocket();
+        this.socket?.close();
+        Object.values(this.dataAgeTimers).forEach((timer) => clearInterval(timer));
+        this.dataAgeTimers = {};
     },
     methods: {
         getInitialData() {
@@ -163,6 +166,19 @@ export default defineComponent({
                     this.resetDataAging(Object.keys(root['solarcharger']['instances']));
                 });
         },
+        handleMessage(event: MessageEvent) {
+            const root = JSON.parse(event.data);
+            this.dplData = root['dpl'];
+
+            if (root['solarcharger']['full_update'] === true || this.solarcharger.instances === undefined) {
+                this.solarcharger = root['solarcharger'];
+            } else {
+                Object.assign(this.solarcharger.instances, root['solarcharger']['instances']);
+            }
+
+            this.resetDataAging(Object.keys(root['solarcharger']['instances']));
+            this.dataLoading = false;
+        },
         initSocket() {
             console.log('Starting connection to SolarCharger WebSocket Server');
 
@@ -170,31 +186,22 @@ export default defineComponent({
             const authString = authUrl();
             const webSocketUrl = `${protocol === 'https:' ? 'wss' : 'ws'}://${authString}${host}/solarchargerlivedata`;
 
-            this.socket = new WebSocket(webSocketUrl);
-
-            this.socket.onmessage = (event) => {
-                console.log(event);
-                const root = JSON.parse(event.data);
-                this.dplData = root['dpl'];
-                if (root['solarcharger']['full_update'] === true) {
-                    this.solarcharger = root['solarcharger'];
-                } else {
-                    Object.assign(this.solarcharger.instances, root['solarcharger']['instances']);
-                }
-                this.resetDataAging(Object.keys(root['solarcharger']['instances']));
-                this.dataLoading = false;
-                this.heartCheck(); // Reset heartbeat detection
-            };
-
-            this.socket.onopen = function (event) {
-                console.log(event);
-                console.log('Successfully connected to the SolarCharger websocket server...');
-            };
+            this.socket = new WebSocketService(webSocketUrl, {
+                onMessage: this.handleMessage,
+                onOpen: () => {
+                    console.log('SolarCharger WebSocket connected');
+                },
+                onClose: () => {
+                    console.log('SolarCharger WebSocket closed');
+                },
+            });
 
             // Listen to window events , When the window closes , Take the initiative to disconnect websocket Connect
             window.onbeforeunload = () => {
-                this.closeSocket();
+                this.socket?.close();
             };
+
+            this.socket?.connect();
         },
         resetDataAging(serials: Array<string>) {
             serials.forEach((serial) => {
@@ -218,28 +225,6 @@ export default defineComponent({
             this.dataAgeTimers[serial] = setTimeout(() => {
                 this.doDataAging(serial);
             }, 1000);
-        },
-        // Send heartbeat packets regularly * 59s Send a heartbeat
-        heartCheck() {
-            if (this.heartInterval) {
-                clearTimeout(this.heartInterval);
-            }
-            this.heartInterval = setInterval(() => {
-                if (this.socket.readyState === 1) {
-                    // Connection status
-                    this.socket.send('ping');
-                } else {
-                    this.initSocket(); // Breakpoint reconnection 5 Time
-                }
-            }, 59 * 1000);
-        },
-        /** To break off websocket Connect */
-        closeSocket() {
-            this.socket.close();
-            if (this.heartInterval) {
-                clearTimeout(this.heartInterval);
-            }
-            this.isFirstFetchAfterConnect = true;
         },
     },
 });

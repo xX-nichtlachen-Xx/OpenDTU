@@ -31,6 +31,7 @@ export interface SystemStatus {
     resetreason_0: string;
     resetreason_1: string;
     cfgsavecount: number;
+    runtime_savecount: string;
     uptime: number;
     update_text: string;
     update_url: string;
@@ -44,6 +45,8 @@ export interface SystemStatus {
     littlefs_used: number;
     psram_total: number;
     psram_used: number;
+    psram_max_block: number;
+    psram_min_free: number;
     sketch_total: number;
     sketch_used: number;
     // RadioInfo
