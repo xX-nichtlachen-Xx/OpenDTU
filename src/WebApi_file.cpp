@@ -38,6 +38,11 @@ struct OtaSlotFirmwareUpload {
 };
 OtaSlotFirmwareUpload g_otaFirmwareUpload;
 
+// Original filename (as picked in the browser) of the currently staged
+// firmware upload. RAM-only, so a device reboot forgets it, but it survives
+// a UI page reload since it's kept server-side rather than in Vue state.
+String g_firmwareUploadOriginalName;
+
 const esp_partition_t* getInactiveFirmwarePartition()
 {
     const esp_partition_t* running = esp_ota_get_running_partition();
@@ -296,6 +301,7 @@ void WebApiFileClass::init(AsyncWebServer& server, Scheduler& scheduler)
     server.on("/api/file/delete", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiFileClass::onFileDelete, this, _1)));
     server.on("/api/file/delete_all", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiFileClass::onFileDeleteAll, this, _1)));
     server.on("/api/file/list", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiFileClass::onFileListGet, this, _1)));
+    server.on("/api/file/firmware_info", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiFileClass::onFirmwareInfoGet, this, _1)));
     server.on("/api/file/upload", HTTP_POST,
         std::bind(&WebApiFileClass::onFileUploadFinish, this, _1),
         std::bind(&WebApiFileClass::onFileUpload, this, _1, _2, _3, _4, _5, _6));
@@ -324,6 +330,19 @@ void WebApiFileClass::onFileListGet(AsyncWebServerRequest* request)
         file = rootfs.openNextFile();
     }
     file.close();
+
+    WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+}
+
+void WebApiFileClass::onFirmwareInfoGet(AsyncWebServerRequest* request)
+{
+    if (!WebApi.checkCredentials(request)) {
+        return;
+    }
+
+    AsyncJsonResponse* response = new AsyncJsonResponse();
+    auto& root = response->getRoot();
+    root["name"] = g_firmwareUploadOriginalName;
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
 }
@@ -443,6 +462,10 @@ void WebApiFileClass::onFileUpload(AsyncWebServerRequest* request, String filena
         request->setAttribute("upload_use_ota_slot", useInactiveOtaSlot);
         ESP_LOGI(TAG, "FW upload: starting upload of \"%s\" -> \"%s\" (psram=%d, otaSlot=%d, psramSize=%u)",
             fileParam.c_str(), name.c_str(), usePsram, useInactiveOtaSlot, static_cast<unsigned>(ESP.getPsramSize()));
+
+        if (name.startsWith("/firmware/")) {
+            g_firmwareUploadOriginalName = request->hasParam("origName") ? request->getParam("origName")->value() : String();
+        }
 
         if (usePsram) {
             clearFirmwareUploadFromPsram();

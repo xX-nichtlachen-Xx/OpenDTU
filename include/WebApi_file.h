@@ -17,6 +17,7 @@ private:
     void onFileDelete(AsyncWebServerRequest* request);
     void onFileDeleteAll(AsyncWebServerRequest* request);
     void onFileListGet(AsyncWebServerRequest* request);
+    void onFirmwareInfoGet(AsyncWebServerRequest* request);
     void onFileUploadFinish(AsyncWebServerRequest* request);
     void onFileUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
 };

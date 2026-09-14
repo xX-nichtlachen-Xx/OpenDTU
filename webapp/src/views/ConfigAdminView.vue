@@ -120,6 +120,9 @@
                         @change="onFirmwareFileChange"
                     />
                 </div>
+                <div class="col-sm" v-if="firmwareFileSelected || firmwareUploadedName">
+                    {{ firmwareFileSelected ? firmwareFile.name : firmwareUploadedName }}
+                </div>
                 <div class="col-sm">
                     <button
                         class="btn btn-primary"
@@ -217,7 +220,8 @@ export default defineComponent({
             firmwareUploadError: '',
             firmwareUploadSuccess: false,
             firmwareFileSelected: false,
-            firmwareFile: {} as Blob,
+            firmwareFile: {} as File,
+            firmwareUploadedName: '',
             restoreFileSelect: 'config.json',
             restoreList: [
                 {
@@ -245,8 +249,16 @@ export default defineComponent({
     },
     created() {
         this.getFileList();
+        this.getFirmwareInfo();
     },
     methods: {
+        getFirmwareInfo() {
+            fetch('/api/file/firmware_info', { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data) => {
+                    this.firmwareUploadedName = data.name;
+                });
+        },
         getFileList() {
             this.loading = true;
             fetch('/api/file/list', { headers: authHeader() })
@@ -367,6 +379,7 @@ export default defineComponent({
             request.addEventListener('load', () => {
                 if (request.status === 200) {
                     this.firmwareUploadSuccess = true;
+                    this.firmwareUploadedName = this.firmwareFile.name;
                     this.getFileList();
                 } else {
                     this.firmwareUploadError = request.responseText || this.$t('fileadmin.FirmwareUploadError');
@@ -384,7 +397,11 @@ export default defineComponent({
 
             const formData = new FormData();
             formData.append('firmware', this.firmwareFile, 'firmware.hex');
-            request.open('post', '/api/file/upload?file=firmware/uploaded.hex&restart=false');
+            request.open(
+                'post',
+                '/api/file/upload?file=firmware/uploaded.hex&restart=false&origName=' +
+                    encodeURIComponent(this.firmwareFile.name)
+            );
             authHeader().forEach((value, key) => {
                 request.setRequestHeader(key, value);
             });
