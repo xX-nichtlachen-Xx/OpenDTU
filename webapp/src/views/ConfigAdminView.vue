@@ -110,7 +110,7 @@
             <div v-else-if="firmwareUploadSuccess" class="alert alert-success" role="alert">
                 {{ $t('fileadmin.FirmwareUploadSuccess') }}
             </div>
-            <div v-else class="row g-3 align-items-center form-group pt-2">
+            <div class="row g-3 align-items-center form-group pt-2">
                 <div class="col-sm">
                     <input
                         class="form-control"
