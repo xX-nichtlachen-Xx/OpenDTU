@@ -117,6 +117,8 @@ const std::array<const AlarmMessage_t, ALARM_MSG_COUNT> AlarmLogParser::_alarmMe
     { AlarmMessageType_t::HMT, 221, "Abnormal wiring of grid neutral line", "", "" },
     { AlarmMessageType_t::ALL, 222, "PV-4: Input undervoltage", "PV-4: Eingangsunterspannung", "PV-4: Sous-tension d’entrée" },
 
+    { AlarmMessageType_t::ALL, 223, "Grid: Connection attempt failed", "Netz: Netzaufschaltung fehlgeschlagen", "Réseau: Échec de la connexion au réseau" },
+
     { AlarmMessageType_t::ALL, 301, "FB-A: internal short circuit failure", "", "" },
     { AlarmMessageType_t::ALL, 302, "FB-B: internal short circuit failure", "", "" },
 
