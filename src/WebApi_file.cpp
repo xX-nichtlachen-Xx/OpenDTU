@@ -235,11 +235,6 @@ bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const
         return false;
     }
 
-    // The partition is already fully erased by clearFirmwareUploadFromInactiveOtaSlot(),
-    // which is always called before the first write of a new upload -- erasing again
-    // here would needlessly double the (already slow, up to several seconds) blocking
-    // flash erase time on every upload.
-
     if (g_otaFirmwareUpload.size + len > partition->size) {
         ESP_LOGE(TAG, "FW upload (OTA slot): total size would exceed partition size %" PRIu32 " (have %u, +%u)",
             partition->size, static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len));
