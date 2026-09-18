@@ -93,5 +93,7 @@ protected:
     bool _isInitialized = false;
     bool _busyFlag = false;
 
+    bool _txFailed = false;
+
     TimeoutHelper _rxTimeout;
 };

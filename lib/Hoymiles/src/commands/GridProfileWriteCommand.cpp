@@ -140,16 +140,17 @@ void GridProfileWriteCommand::gotTimeout()
         ESP_LOGW(TAG, "GridProfileWrite: timeout waiting for ack on last frame");
         _inv->GridProfile()->setLastWriteCommandSuccess(CMD_NOK);
         _inv->onGridProfileWriteCompleted(false);
+    } else {
+        ESP_LOGW(TAG, "GridProfileWrite: middle frame nub=%u not delivered, aborting write",
+            static_cast<unsigned>(_packetNumber));
+        _inv->abortGridProfileWriteRequest();
     }
     CommandAbstract::gotTimeout();
 }
 
 uint8_t GridProfileWriteCommand::getMaxResendCount() const
 {
-    // Middle frames go once; only the last frame is worth resending because
-    // it's the one the inverter actually acks. Resending a middle frame while
-    // the queue still holds later frames would break ordering.
-    return _isLast ? 3 : 0;
+    return _isLast ? 3 : 2;
 }
 
 uint8_t GridProfileWriteCommand::getMaxRetransmitCount() const

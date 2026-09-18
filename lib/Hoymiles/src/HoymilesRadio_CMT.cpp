@@ -279,11 +279,19 @@ void HoymilesRadio_CMT::sendEsbPacket(CommandAbstract& cmd)
     ESP_LOGD(TAG, "TX %s %.2f MHz --> %s",
         cmd.getCommandName().c_str(), getFrequencyFromChannel(_radio->getChannel()) / 1000000.0, cmd.dumpDataPayload().c_str());
 
-    if (!_radio->write(cmd.getDataPayload(), cmd.getDataSize())) {
+    const bool txOk = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
+    if (!txOk) {
         ESP_LOGE(TAG, "TX SPI Timeout");
     }
     cmtSwitchDtuFreq(_inverterTargetFrequency);
     _radio->startListening();
     _busyFlag = true;
     _rxTimeout.set(cmd.getTimeout());
+
+    // Packet never left the radio: end the RX period right away and let the
+    // resend path in handleReceivedPackage() run.
+    _txFailed = !txOk;
+    if (_txFailed) {
+        _rxTimeout.set(0);
+    }
 }

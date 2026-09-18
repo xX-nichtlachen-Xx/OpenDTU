@@ -287,6 +287,12 @@ void InverterAbstract::addRxFragment(const uint8_t fragment[], const uint8_t len
 // Returns Zero on Success or the Fragment ID for retransmit or error code
 uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
 {
+    // Fire-and-forget commands get no answer: silence is the expected outcome,
+    // not a loss, so neither the resend nor the retransmit path applies.
+    if (!cmd.expectsResponse()) {
+        return FRAGMENT_OK;
+    }
+
     // All missing
     if (_rxFragmentLastPacketId == 0) {
         ESP_LOGW(TAG, "All missing");

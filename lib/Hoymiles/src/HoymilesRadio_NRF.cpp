@@ -13,6 +13,10 @@
 #undef TAG
 static const char* TAG = "hoymiles";
 
+static constexpr uint32_t CHANNEL_HOPPING_MICROS = 5192; // frame time in microseconds (2 * 2596)
+
+static constexpr uint32_t RX_HOLD_MICROS = 100000;
+
 void HoymilesRadio_NRF::init(SPIClass* initialisedSpiBus, const uint8_t pinCE, const uint8_t pinIRQ)
 {
     _dtuSerial.u64 = 0;
@@ -47,11 +51,6 @@ void HoymilesRadio_NRF::loop()
         return;
     }
 
-    EVERY_N_MILLIS(4)
-    {
-        switchRxCh();
-    }
-
     if (_packetReceived) {
         ESP_LOGV(TAG, "Interrupt received");
         while (_radio->available()) {
@@ -70,34 +69,37 @@ void HoymilesRadio_NRF::loop()
             _rxBuffer.push(f);
         }
         _packetReceived = false;
+        _lastRxMicros = micros();
+    }
 
-    } else {
-        // Perform package parsing only if no packages are received
-        if (!_rxBuffer.empty()) {
-            fragment_t f = _rxBuffer.back();
-            if (checkFragmentCrc(f)) {
-                std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterByFragment(f);
+    switchRxCh(); // first check
 
-                if (nullptr != inv) {
-                    // Save packet in inverter rx buffer
-                    ESP_LOGD(TAG, "RX Channel: %" PRIu8 " --> %s | %" PRId8 " dBm",
-                        f.channel, Utils::dumpArray(f.fragment, f.len).c_str(), f.rssi);
+    while (!_rxBuffer.empty()) {
+        fragment_t f = _rxBuffer.front();
+        if (checkFragmentCrc(f)) {
+            std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterByFragment(f);
 
-                    inv->addRxFragment(f.fragment, f.len, f.rssi);
-                } else {
-                    ESP_LOGE(TAG, "Inverter Not found!");
-                }
+            if (nullptr != inv) {
+                // Save packet in inverter rx buffer
+                ESP_LOGD(TAG, "RX Channel: %" PRIu8 " --> %s | %" PRId8 " dBm",
+                    f.channel, Utils::dumpArray(f.fragment, f.len).c_str(), f.rssi);
 
+                inv->addRxFragment(f.fragment, f.len, f.rssi);
             } else {
-                ESP_LOGW(TAG, "Frame kaputt");
+                ESP_LOGE(TAG, "Inverter Not found!");
             }
 
-            // Remove paket from buffer even it was corrupted
-            _rxBuffer.pop();
+        } else {
+            ESP_LOGW(TAG, "Frame kaputt");
         }
+
+        // Remove paket from buffer even it was corrupted
+        _rxBuffer.pop();
     }
 
     handleReceivedPackage();
+
+    switchRxCh(); // second check
 }
 
 void HoymilesRadio_NRF::setPALevel(const rf24_pa_dbm_e paLevel)
@@ -137,13 +139,13 @@ bool HoymilesRadio_NRF::isPVariant() const
 void HoymilesRadio_NRF::openReadingPipe()
 {
     const serial_u s = convertSerialToRadioId(_dtuSerial);
-    _radio->openReadingPipe(1, s.u64);
+    _radio->openReadingPipe(1, s.b);
 }
 
 void HoymilesRadio_NRF::openWritingPipe(const serial_u serial)
 {
     const serial_u s = convertSerialToRadioId(serial);
-    _radio->stopListening(s.u64);
+    _radio->stopListening(s.b);
 }
 
 void ARDUINO_ISR_ATTR HoymilesRadio_NRF::handleIntr()
@@ -151,25 +153,53 @@ void ARDUINO_ISR_ATTR HoymilesRadio_NRF::handleIntr()
     _packetReceived = true;
 }
 
-uint8_t HoymilesRadio_NRF::getRxNxtChannel()
-{
-    if (++_rxChIdx >= sizeof(_rxChLst))
-        _rxChIdx = 0;
-    return _rxChLst[_rxChIdx];
-}
-
 uint8_t HoymilesRadio_NRF::getTxNxtChannel()
 {
-    if (++_txChIdx >= sizeof(_txChLst))
-        _txChIdx = 0;
-    return _txChLst[_txChIdx];
+    // we sync start of transmitting mode to start of the next time frame.
+    // This leads to an additional delay, and the transmission channel is determined randomly.
+    uint32_t nowMicros = micros();
+    uint32_t diffMicros = nowMicros - _refMicros;
+    uint32_t addCh = diffMicros / CHANNEL_HOPPING_MICROS + 1;
+    _refMicros = _refMicros + addCh * CHANNEL_HOPPING_MICROS;
+    uint32_t delayMicros = _refMicros - nowMicros;
+
+    if (delayMicros < CHANNEL_HOPPING_MICROS) {
+        delayMicroseconds(delayMicros); // delay to the next time frame, 0ms - HOPPING_MICROS
+    }
+
+    // For example, if we are on channel 61, we will sync start of transmitting to channel 75
+    _rxChIdx = (_rxChIdx + addCh) % sizeof(_rxChLst);
+    return _rxChLst[_rxChIdx];
+
 }
 
-void HoymilesRadio_NRF::switchRxCh()
+void HoymilesRadio_NRF::switchRxCh(bool const immediately)
 {
-    _radio->stopListening();
-    _radio->setChannel(getRxNxtChannel());
-    _radio->startListening();
+    // channel hopping should be kept as precise as possible, even if the function has not been called for
+    // a longer period of time or if the function is called multiple times in the same time frame.
+    // Only if the immediately flag is set, the channel will be switched without checking the time.
+    const uint32_t nowMicros = micros();
+    uint32_t diffMicros = nowMicros - _refMicros;
+    if ((diffMicros >= CHANNEL_HOPPING_MICROS) || immediately) {
+
+        // addCh can be 0, in this case we keep the current channel and just switch back to receiving mode.
+        uint32_t addCh = diffMicros / CHANNEL_HOPPING_MICROS;
+        _refMicros = _refMicros + addCh * CHANNEL_HOPPING_MICROS;
+        _rxChIdx = (_rxChIdx + addCh) % sizeof(_rxChLst);
+
+        // Hold the current RX channel while fragments of the pending answer
+        // keep arriving. The hop schedule above is still advanced, so once the
+        // hold ends we land on the regular channel again.
+        const bool holdRx = !immediately && _busyFlag && _lastRxMicros != 0
+            && (nowMicros - _lastRxMicros) < RX_HOLD_MICROS;
+        if (holdRx) {
+            return;
+        }
+
+        _radio->stopListening();
+        _radio->setChannel(_rxChLst[_rxChIdx]);
+        _radio->startListening();
+    }
 }
 
 void HoymilesRadio_NRF::sendEsbPacket(CommandAbstract& cmd)
@@ -184,27 +214,44 @@ void HoymilesRadio_NRF::sendEsbPacket(CommandAbstract& cmd)
     serial_u s;
     s.u64 = cmd.getTargetAddress();
     openWritingPipe(s);
-    _radio->setRetries(3, 15);
+
+    // the Automatic Retry Delay and the Automatic Retry Attempts are dynamically adjusted based
+    // on the payload to optimize transmission time and success rate.
+    uint8_t dataSize = std::min<uint8_t>(cmd.getDataSize(), sizeof(_ARD) - 1);
+    uint8_t ard = _ARD[dataSize];   // ARD based on payload size, 0-32 bytes
+    uint8_t art = 9;                // ART = 9 means that we try to send the packet up to 10 times
+    _radio->setRetries(ard, art);
 
     ESP_LOGD(TAG, "TX %s Channel: %" PRIu8 " --> %s",
         cmd.getCommandName().c_str(), _radio->getChannel(), cmd.dumpDataPayload().c_str());
-
     // write() returning false means the hardware auto-retries (set above) were
     // all exhausted without a link-layer ACK, i.e. the packet very likely never
-    // reached the inverter. This matters most for commands that get no app-level
-    // reply/resend (e.g. GridProfileWriteCommand middle frames), where such a
-    // silent loss would otherwise go completely unnoticed. Retry a few more times
-    // here before giving up.
-    bool wasAcked = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
-    for (uint8_t retry = 0; !wasAcked && retry < 2; retry++) {
-        ESP_LOGW(TAG, "TX %s: no hardware ACK, retrying (%" PRIu8 ")", cmd.getCommandName().c_str(), static_cast<uint8_t>(retry + 1));
-        wasAcked = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
-    }
+    // reached the inverter. The resend is handled generically below via
+    // _txFailed (see HoymilesRadio::handleReceivedPackage), bounded by the
+    // command's getMaxResendCount() budget.
+    auto result = _radio->write(cmd.getDataPayload(), cmd.getDataSize());
 
     _radio->setRetries(0, 0);
     openReadingPipe();
-    _radio->setChannel(getRxNxtChannel());
-    _radio->startListening();
+    switchRxCh(true); // switch back to the correct RX channel to be ready for the response.
     _busyFlag = true;
     _rxTimeout.set(cmd.getTimeout());
+    _lastRxMicros = 0; // RX channel hold starts with the first fragment of this command
+
+    // No auto-ack after all hardware retries: the inverter did not get the
+    // request, so end the RX period right away and let the resend path run.
+    _txFailed = !result;
+    if (_txFailed) {
+        _rxTimeout.set(0);
+    }
+
+    _txCounter++;
+    if (!result) { _txFailCounter++; }
+    if (_txCounter > 100000) { _txCounter /= 2; _txFailCounter /= 2; }
+
+    ESP_LOGD(TAG, "TX Result: %s, ARC Count: %u, Rx-Channel: %u", result ? "Ok" : "Fail",
+        _radio->getARC(), _radio->getChannel());
+    ESP_LOGD(TAG, "TX PayLoad: %u, ARD: %u, ART: %u", cmd.getDataSize(), ard, art);
+    ESP_LOGD(TAG, "TX Acknowledge statistics: %0.2f%%",
+        (_txCounter - _txFailCounter) * 100.0f / _txCounter);
 }

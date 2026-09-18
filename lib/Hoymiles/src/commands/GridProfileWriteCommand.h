@@ -31,8 +31,12 @@ The inverter answers only on the LAST frame with mainCmd == 0x8A and a state
 byte inside the fragment payload. State byte 0 means the profile was accepted
 and written to flash.
 
-Middle frames are fire-and-forget: getMaxResendCount()==0 gives them a single
-send and short timeout; the queue then advances to the next frame.
+Middle frames are fire-and-forget (expectsResponse()==false): silence after
+the short timeout is the normal outcome and the queue advances to the next
+frame. Their resend budget is only consumed when the radio reports the frame
+as undelivered (no hardware ack); if that budget runs out, the remaining
+frames are dropped and the write is reported as failed right away instead of
+letting the inverter reject the profile at the last frame.
 The last frame gets a longer timeout and a few resends because the inverter
 performs an internal flash write before responding.
 */
@@ -59,6 +63,7 @@ public:
 
     virtual uint8_t getMaxResendCount() const;
     virtual uint8_t getMaxRetransmitCount() const;
+    bool expectsResponse() const override { return _isLast; }
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::AllowMultiple; }
 
     bool isGridProfileWriteCommand() const override { return true; }
