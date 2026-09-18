@@ -35,6 +35,8 @@ PsramFirmwareUploadBuffer g_psramFirmwareUploadBuffer;
 struct OtaSlotFirmwareUpload {
     size_t size = 0;
     String variant;
+    esp_ota_handle_t handle = 0;
+    bool active = false;
 };
 OtaSlotFirmwareUpload g_otaFirmwareUpload;
 
@@ -229,26 +231,20 @@ bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const
         return true;
     }
 
-    const esp_partition_t* partition = getInactiveFirmwarePartition();
-    if (partition == nullptr) {
+    if (!g_otaFirmwareUpload.active) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): esp_ota_begin was not started (or failed) for this upload");
         return false;
     }
 
-    if (len > MAX_FIRMWARE_UPLOAD_SIZE) {
-        ESP_LOGE(TAG, "FW upload (OTA slot): chunk of %u bytes exceeds %u bytes limit",
-            static_cast<unsigned>(len), static_cast<unsigned>(MAX_FIRMWARE_UPLOAD_SIZE));
+    if (len > MAX_FIRMWARE_UPLOAD_SIZE || g_otaFirmwareUpload.size + len > MAX_FIRMWARE_UPLOAD_SIZE) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): total size would exceed %u bytes limit (have %u, +%u)",
+            static_cast<unsigned>(MAX_FIRMWARE_UPLOAD_SIZE), static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len));
         return false;
     }
 
-    if (g_otaFirmwareUpload.size + len > partition->size) {
-        ESP_LOGE(TAG, "FW upload (OTA slot): total size would exceed partition size %" PRIu32 " (have %u, +%u)",
-            partition->size, static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len));
-        return false;
-    }
-
-    const esp_err_t writeResult = esp_partition_write(partition, g_otaFirmwareUpload.size, data, len);
+    const esp_err_t writeResult = esp_ota_write_with_offset(g_otaFirmwareUpload.handle, data, len, g_otaFirmwareUpload.size);
     if (writeResult != ESP_OK) {
-        ESP_LOGE(TAG, "FW upload (OTA slot): esp_partition_write failed at offset %u, len %u: %s",
+        ESP_LOGE(TAG, "FW upload (OTA slot): esp_ota_write failed at offset %u, len %u: %s",
             static_cast<unsigned>(g_otaFirmwareUpload.size), static_cast<unsigned>(len), esp_err_to_name(writeResult));
         return false;
     }
@@ -279,13 +275,26 @@ bool getFirmwareUploadInInactiveOtaSlot(const esp_partition_t*& outPartition, si
 void clearFirmwareUploadFromInactiveOtaSlot()
 {
     ESP_LOGD(TAG, "FW upload (OTA slot): clearing buffer (previous size %u)", static_cast<unsigned>(g_otaFirmwareUpload.size));
-    const esp_partition_t* partition = getInactiveFirmwarePartition();
-    if (partition != nullptr) {
-        esp_partition_erase_range(partition, 0, partition->size);
+
+    if (g_otaFirmwareUpload.active) {
+        esp_ota_abort(g_otaFirmwareUpload.handle);
+        g_otaFirmwareUpload.active = false;
     }
 
     g_otaFirmwareUpload.size = 0;
     g_otaFirmwareUpload.variant = String();
+
+    const esp_partition_t* partition = getInactiveFirmwarePartition();
+    if (partition == nullptr) {
+        return;
+    }
+
+    const esp_err_t beginResult = esp_ota_begin(partition, MAX_FIRMWARE_UPLOAD_SIZE, &g_otaFirmwareUpload.handle);
+    if (beginResult != ESP_OK) {
+        ESP_LOGE(TAG, "FW upload (OTA slot): esp_ota_begin failed: %s", esp_err_to_name(beginResult));
+        return;
+    }
+    g_otaFirmwareUpload.active = true;
 }
 
 void WebApiFileClass::init(AsyncWebServer& server, Scheduler& scheduler)
