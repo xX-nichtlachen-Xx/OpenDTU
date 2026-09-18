@@ -86,6 +86,7 @@ protected:
     void sendRetransmitPacket(const uint8_t fragment_id);
     void sendLastPacketAgain();
     void handleReceivedPackage();
+    bool rxPeriodFinished();
 
     serial_u _dtuSerial;
     CommandQueue _commandQueue;

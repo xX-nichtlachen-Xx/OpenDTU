@@ -271,6 +271,19 @@ void InverterAbstract::addRxFragment(const uint8_t fragment[], const uint8_t len
     }
 }
 
+bool InverterAbstract::isResponseComplete() const
+{
+    if (_rxFragmentMaxPacketId == 0) {
+        return false; // last fragment (0x80) not seen yet
+    }
+    for (uint8_t i = 0; i < _rxFragmentMaxPacketId; i++) {
+        if (!_rxFragmentBuffer[i].wasReceived) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Returns Zero on Success or the Fragment ID for retransmit or error code
 uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
 {

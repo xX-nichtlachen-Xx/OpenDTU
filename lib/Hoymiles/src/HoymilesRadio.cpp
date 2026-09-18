@@ -55,9 +55,32 @@ void HoymilesRadio::sendLastPacketAgain()
     sendEsbPacket(*cmd);
 }
 
+bool HoymilesRadio::rxPeriodFinished()
+{
+    if (_rxTimeout.occured()) {
+        return true;
+    }
+
+    if (isQueueEmpty()) {
+        return false;
+    }
+    CommandAbstract* cmd = _commandQueue.front().get();
+    if (!cmd->isFirmwareDataCommand() || !cmd->expectsResponse()) {
+        return false;
+    }
+    std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterBySerial(cmd->getTargetAddress());
+    if (nullptr == inv || !inv->isResponseComplete()) {
+        return false;
+    }
+
+    ESP_LOGD(TAG, "RX Period End (early, firmware row ack received)");
+    _rxTimeout.set(0);
+    return true;
+}
+
 void HoymilesRadio::handleReceivedPackage()
 {
-    if (_busyFlag && _rxTimeout.occured()) {
+    if (_busyFlag && rxPeriodFinished()) {
         ESP_LOGI(TAG, "RX Period End");
         std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterBySerial(_commandQueue.front().get()->getTargetAddress());
 
