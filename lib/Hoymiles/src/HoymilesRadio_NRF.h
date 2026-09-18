@@ -36,6 +36,7 @@ private:
     uint8_t _rxChLst[5] = { 3, 23, 40, 61, 75 };
     uint8_t _rxChIdx = 0;
     uint32_t _refMicros = 0;
+    uint32_t _lastRxMicros = 0; // micros() of the last received fragment (0 = none for this command)
     uint32_t _txCounter = 0;
     uint32_t _txFailCounter = 0;
 

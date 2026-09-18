@@ -93,5 +93,11 @@ protected:
     bool _isInitialized = false;
     bool _busyFlag = false;
 
+    // Set by sendEsbPacket() when the radio reported that the packet was NOT
+    // delivered (NRF: no auto-ack after all retries, CMT: SPI/TX timeout).
+    // handleReceivedPackage() then resends right away instead of waiting out
+    // the RX period for an answer that cannot come.
+    bool _txFailed = false;
+
     TimeoutHelper _rxTimeout;
 };
