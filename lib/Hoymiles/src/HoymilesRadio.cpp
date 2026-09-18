@@ -63,6 +63,27 @@ void HoymilesRadio::handleReceivedPackage()
 
         if (nullptr != inv) {
             CommandAbstract* cmd = _commandQueue.front().get();
+
+            if (_txFailed) {
+                // The inverter never acknowledged the request on the air, so
+                // no answer can be pending. Skip the fragment check and resend
+                // immediately while the resend budget lasts.
+                _txFailed = false;
+                if (cmd->getSendCount() <= cmd->getMaxResendCount()) {
+                    ESP_LOGW(TAG, "TX not acknowledged, resend request (attempt %" PRIu8 ")", cmd->getSendCount() + 1);
+                    sendLastPacketAgain();
+                } else {
+                    ESP_LOGW(TAG, "TX not acknowledged, resend count exceeded");
+                    if (inv->RadioStats.TxRequestData > 0) {
+                        inv->RadioStats.RxFailNoAnswer++;
+                    }
+                    cmd->gotTimeout();
+                    _commandQueue.pop();
+                    _busyFlag = false;
+                }
+                return;
+            }
+
             uint8_t verifyResult = inv->verifyAllFragments(*cmd);
             if (verifyResult == FRAGMENT_ALL_MISSING_RESEND) {
                 ESP_LOGW(TAG, "Nothing received, resend whole request");

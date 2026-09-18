@@ -15,6 +15,13 @@ static const char* TAG = "hoymiles";
 
 static constexpr uint32_t CHANNEL_HOPPING_MICROS = 5192; // frame time in microseconds (2 * 2596)
 
+// While a multi-fragment answer is streaming in, keep the RX channel fixed for
+// this long after every received fragment. The inverter's Gazell stack retries
+// each fragment across all channels until it gets our ack, so a DTU that keeps
+// hopping mid-answer only makes that search longer. The reference DTU budgets
+// about 60 ms per fragment, so 100 ms covers the gap between two fragments.
+static constexpr uint32_t RX_HOLD_MICROS = 100000;
+
 void HoymilesRadio_NRF::init(SPIClass* initialisedSpiBus, const uint8_t pinCE, const uint8_t pinIRQ)
 {
     _dtuSerial.u64 = 0;
@@ -67,6 +74,7 @@ void HoymilesRadio_NRF::loop()
             _rxBuffer.push(f);
         }
         _packetReceived = false;
+        _lastRxMicros = micros();
     }
 
     switchRxCh(); // first check
@@ -175,13 +183,23 @@ void HoymilesRadio_NRF::switchRxCh(bool const immediately)
     // channel hopping should be kept as precise as possible, even if the function has not been called for
     // a longer period of time or if the function is called multiple times in the same time frame.
     // Only if the immediately flag is set, the channel will be switched without checking the time.
-    uint32_t diffMicros = micros() - _refMicros;
+    const uint32_t nowMicros = micros();
+    uint32_t diffMicros = nowMicros - _refMicros;
     if ((diffMicros >= CHANNEL_HOPPING_MICROS) || immediately) {
 
         // addCh can be 0, in this case we keep the current channel and just switch back to receiving mode.
         uint32_t addCh = diffMicros / CHANNEL_HOPPING_MICROS;
         _refMicros = _refMicros + addCh * CHANNEL_HOPPING_MICROS;
         _rxChIdx = (_rxChIdx + addCh) % sizeof(_rxChLst);
+
+        // Hold the current RX channel while fragments of the pending answer
+        // keep arriving. The hop schedule above is still advanced, so once the
+        // hold ends we land on the regular channel again.
+        const bool holdRx = !immediately && _busyFlag && _lastRxMicros != 0
+            && (nowMicros - _lastRxMicros) < RX_HOLD_MICROS;
+        if (holdRx) {
+            return;
+        }
 
         _radio->stopListening();
         _radio->setChannel(_rxChLst[_rxChIdx]);
@@ -218,6 +236,14 @@ void HoymilesRadio_NRF::sendEsbPacket(CommandAbstract& cmd)
     switchRxCh(true); // switch back to the correct RX channel to be ready for the response.
     _busyFlag = true;
     _rxTimeout.set(cmd.getTimeout());
+    _lastRxMicros = 0; // RX channel hold starts with the first fragment of this command
+
+    // No auto-ack after all hardware retries: the inverter did not get the
+    // request, so end the RX period right away and let the resend path run.
+    _txFailed = !result;
+    if (_txFailed) {
+        _rxTimeout.set(0);
+    }
 
     _txCounter++;
     if (!result) { _txFailCounter++; }
