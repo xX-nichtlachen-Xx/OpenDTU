@@ -15,11 +15,6 @@ static const char* TAG = "hoymiles";
 
 static constexpr uint32_t CHANNEL_HOPPING_MICROS = 5192; // frame time in microseconds (2 * 2596)
 
-// While a multi-fragment answer is streaming in, keep the RX channel fixed for
-// this long after every received fragment. The inverter's Gazell stack retries
-// each fragment across all channels until it gets our ack, so a DTU that keeps
-// hopping mid-answer only makes that search longer. The reference DTU budgets
-// about 60 ms per fragment, so 100 ms covers the gap between two fragments.
 static constexpr uint32_t RX_HOLD_MICROS = 100000;
 
 void HoymilesRadio_NRF::init(SPIClass* initialisedSpiBus, const uint8_t pinCE, const uint8_t pinIRQ)
