@@ -333,9 +333,10 @@ void HM_Abstract::enqueueFirmwareRow(const uint8_t* rowData, const uint16_t rowL
     uint8_t packetNo = 1;
 
     // rowData = [len, addr hi, addr lo, record type, data...]; the record
-    // type decides how long the inverter may take to ack this row.
+    // type decides how often the end packet is repeated before the row is
+    // considered failed (slow erase / commit rows need a bigger budget).
     const uint8_t recordType = rowLen >= 4 ? rowData[3] : 0x00;
-    const uint32_t rowAckTimeout = FirmwareDataCommand::rowAckTimeoutMs(recordType);
+    const uint8_t rowAckResends = FirmwareDataCommand::rowAckResendCount(recordType);
 
     for (size_t rowOffset = 0; rowOffset < rowLen; rowOffset += firmwareChunkSize) {
         const uint8_t chunkLen = static_cast<uint8_t>(std::min<size_t>(firmwareChunkSize, rowLen - rowOffset));
@@ -353,7 +354,7 @@ void HM_Abstract::enqueueFirmwareRow(const uint8_t* rowData, const uint16_t rowL
         dataCmd->setRowAttempt(attempt);
         if (crcFitsHere) {
             dataCmd->appendRowCrc(rowData, static_cast<uint8_t>(rowLen));
-            dataCmd->setRowAckTimeout(rowAckTimeout);
+            dataCmd->setRowAckResendCount(rowAckResends);
         }
 
         if (jumpQueue) {
@@ -370,7 +371,7 @@ void HM_Abstract::enqueueFirmwareRow(const uint8_t* rowData, const uint16_t rowL
             crcCmd->setPayload(rowData, 0);
             crcCmd->appendRowCrc(rowData, static_cast<uint8_t>(rowLen));
             crcCmd->setRowAttempt(attempt);
-            crcCmd->setRowAckTimeout(rowAckTimeout);
+            crcCmd->setRowAckResendCount(rowAckResends);
 
             if (jumpQueue) {
                 packets.push_back(crcCmd);

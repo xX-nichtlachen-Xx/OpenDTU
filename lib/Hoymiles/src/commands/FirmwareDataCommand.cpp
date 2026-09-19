@@ -31,9 +31,14 @@ static const char* TAG = "hoymiles";
 #define MAX_PAYLOAD_SIZE 16
 #define MAX_ATTEMPTS_PER_LINE 10
 
-#define ROW_ACK_TIMEOUT_DATA_MS 350 // ordinary data row (type 0x00)
-#define ROW_ACK_TIMEOUT_ERASE_MS 8000 // address / leading vendor rows -> flash erase
-#define ROW_ACK_TIMEOUT_EOF_MS 6000 // EOF row -> commit / verify
+#define ROW_ACK_TIMEOUT_MS 350 // per end-packet wait, all row types
+
+// End-packet repeats per row type, sized so the repeats cover the reference
+// DTU's task budget (usart_nrfConfig.h): 8 s for the erase line, 6 s for the
+// last line, at ROW_ACK_TIMEOUT_MS per repeat.
+#define ROW_ACK_RESENDS_DATA MAX_ATTEMPTS_PER_LINE // ~3.5 s
+#define ROW_ACK_RESENDS_ERASE 23 // ~8 s: address / leading vendor rows -> flash erase
+#define ROW_ACK_RESENDS_EOF 17 // ~6 s: EOF row -> commit / verify
 
 FirmwareDataCommand::FirmwareDataCommand(InverterAbstract* inv, const uint64_t router_address)
     : FirmwareCommand(inv, router_address)
@@ -57,25 +62,25 @@ void FirmwareDataCommand::setPacketNumber(const uint8_t packet_no)
     // Intermediate chunks are fire-and-forget (no ack expected) -- keep the
     // per-packet wait tiny so we just let the RF layer finish, then move on.
     // Only the last packet of a row (0x80 bit set) waits for the row ack.
-    setTimeout((packet_no & 0x80) ? ROW_ACK_TIMEOUT_DATA_MS : 30);
+    setTimeout((packet_no & 0x80) ? ROW_ACK_TIMEOUT_MS : 30);
 }
 
-uint32_t FirmwareDataCommand::rowAckTimeoutMs(const uint8_t recordType)
+uint8_t FirmwareDataCommand::rowAckResendCount(const uint8_t recordType)
 {
     switch (recordType) {
     case 0x00: // data
-        return ROW_ACK_TIMEOUT_DATA_MS;
+        return ROW_ACK_RESENDS_DATA;
     case 0x01: // end of file
-        return ROW_ACK_TIMEOUT_EOF_MS;
+        return ROW_ACK_RESENDS_EOF;
     default: // 0x02/0x04 address records, 0x10/0x11 vendor header rows, anything else
-        return ROW_ACK_TIMEOUT_ERASE_MS;
+        return ROW_ACK_RESENDS_ERASE;
     }
 }
 
-void FirmwareDataCommand::setRowAckTimeout(const uint32_t timeoutMs)
+void FirmwareDataCommand::setRowAckResendCount(const uint8_t count)
 {
     if (_payload[9] & 0x80) {
-        setTimeout(timeoutMs);
+        _rowAckResendCount = count;
     }
 }
 
@@ -111,7 +116,7 @@ uint8_t FirmwareDataCommand::getMaxResendCount() const
     if ((_payload[9] & 0x80) == 0) {
         return 0;
     }
-    return MAX_ATTEMPTS_PER_LINE;
+    return _rowAckResendCount != 0 ? _rowAckResendCount : MAX_ATTEMPTS_PER_LINE;
 }
 
 bool FirmwareDataCommand::expectsResponse() const
