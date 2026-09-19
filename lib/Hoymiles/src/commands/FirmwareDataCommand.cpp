@@ -31,6 +31,10 @@ static const char* TAG = "hoymiles";
 #define MAX_PAYLOAD_SIZE 16
 #define MAX_ATTEMPTS_PER_LINE 10
 
+#define ROW_ACK_TIMEOUT_DATA_MS 350 // ordinary data row (type 0x00)
+#define ROW_ACK_TIMEOUT_ERASE_MS 8000 // address / leading vendor rows -> flash erase
+#define ROW_ACK_TIMEOUT_EOF_MS 6000 // EOF row -> commit / verify
+
 FirmwareDataCommand::FirmwareDataCommand(InverterAbstract* inv, const uint64_t router_address)
     : FirmwareCommand(inv, router_address)
 {
@@ -53,7 +57,26 @@ void FirmwareDataCommand::setPacketNumber(const uint8_t packet_no)
     // Intermediate chunks are fire-and-forget (no ack expected) -- keep the
     // per-packet wait tiny so we just let the RF layer finish, then move on.
     // Only the last packet of a row (0x80 bit set) waits for the row ack.
-    setTimeout((packet_no & 0x80) ? 350 : 30);
+    setTimeout((packet_no & 0x80) ? ROW_ACK_TIMEOUT_DATA_MS : 30);
+}
+
+uint32_t FirmwareDataCommand::rowAckTimeoutMs(const uint8_t recordType)
+{
+    switch (recordType) {
+    case 0x00: // data
+        return ROW_ACK_TIMEOUT_DATA_MS;
+    case 0x01: // end of file
+        return ROW_ACK_TIMEOUT_EOF_MS;
+    default: // 0x02/0x04 address records, 0x10/0x11 vendor header rows, anything else
+        return ROW_ACK_TIMEOUT_ERASE_MS;
+    }
+}
+
+void FirmwareDataCommand::setRowAckTimeout(const uint32_t timeoutMs)
+{
+    if (_payload[9] & 0x80) {
+        setTimeout(timeoutMs);
+    }
 }
 
 void FirmwareDataCommand::setPayload(const uint8_t* data, const uint8_t len)

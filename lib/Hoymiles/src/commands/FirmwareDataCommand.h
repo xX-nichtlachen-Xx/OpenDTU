@@ -10,6 +10,12 @@ public:
 
     String getCommandName() const override;
     void setPacketNumber(const uint8_t packet_no);
+
+    static uint32_t rowAckTimeoutMs(const uint8_t recordType);
+
+    // Applies the row-ack timeout; only effective on last-of-row packets
+    // (nub bit 0x80), intermediate chunks keep their short wait.
+    void setRowAckTimeout(const uint32_t timeoutMs);
     void setPayload(const uint8_t* data, const uint8_t len);
     void setRowData(const uint8_t* rowData, const uint8_t rowLen);
 
