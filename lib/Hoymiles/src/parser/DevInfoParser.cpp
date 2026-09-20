@@ -98,6 +98,17 @@ DevInfoParser::DevInfoParser()
     clearBufferAll();
 }
 
+void DevInfoParser::invalidate()
+{
+    beginAppendFragment();
+    clearBufferAll();
+    clearBufferSimple();
+    _lastUpdateAll = 0;
+    _lastUpdateSimple = 0;
+    setLastUpdate(0);
+    endAppendFragment();
+}
+
 void DevInfoParser::clearBufferAll()
 {
     memset(_payloadDevInfoAll, 0, DEV_INFO_SIZE);

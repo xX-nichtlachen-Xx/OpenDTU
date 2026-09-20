@@ -32,6 +32,10 @@ public:
 
     bool containsValidData() const;
 
+    // Drops all cached device info so the poll loop re-requests it
+    // (e.g. after an inverter firmware update changed the version).
+    void invalidate();
+
 private:
     static time_t timegm(const struct tm* tm);
     uint8_t getDevIdx() const;
