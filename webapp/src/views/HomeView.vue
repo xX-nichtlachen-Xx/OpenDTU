@@ -383,6 +383,19 @@
             </button>
             <button
                 type="button"
+                class="btn btn-secondary me-2"
+                :disabled="
+                    devInfoLoading ||
+                    !devInfoList.serial ||
+                    devInfoList.firmware_update_running ||
+                    devInfoRefreshPending
+                "
+                @click="onRefreshDevInfo(devInfoList.serial)"
+            >
+                {{ devInfoRefreshPending ? $t('home.RefreshDevInfoPending') : $t('home.RefreshDevInfo') }}
+            </button>
+            <button
+                type="button"
                 class="btn btn-primary"
                 :disabled="
                     devInfoLoading ||
@@ -620,6 +633,7 @@ export default defineComponent({
             devInfoLoading: true,
             devInfoPollHandle: 0,
             devInfoPollGeneration: 0,
+            devInfoRefreshPending: false,
             gridProfileView: {} as bootstrap.Modal,
             gridProfileList: {} as GridProfileStatus,
             gridProfileRawList: {} as GridProfileRawdata,
@@ -942,6 +956,80 @@ export default defineComponent({
                     });
             }
         },
+        // Asks the DTU to drop its cached device info and re-request it from the
+        // inverter (works even with polling disabled), then waits for fresh data.
+        onRefreshDevInfo(serial: string) {
+            this.stopDevInfoPolling();
+            const generation = ++this.devInfoPollGeneration;
+            this.devInfoRefreshPending = true;
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
+
+            const fail = (message: string) => {
+                if (generation !== this.devInfoPollGeneration) {
+                    return;
+                }
+                this.devInfoRefreshPending = false;
+                this.firmwareUpdateAlertMessage = message;
+                this.firmwareUpdateAlertType = 'warning';
+                this.showFirmwareUpdateAlert = true;
+            };
+
+            let attempts = 0;
+            const maxAttempts = 20; // 20 x 2s = 40s
+            const poll = () => {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((data) => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        this.devInfoList = data;
+                        this.devInfoList.serial = serial;
+                        if (data.valid_data) {
+                            this.devInfoRefreshPending = false;
+                            this.devInfoPollHandle = 0;
+                        } else if (++attempts >= maxAttempts) {
+                            this.devInfoPollHandle = 0;
+                            fail(this.$t('home.RefreshDevInfoTimeout'));
+                        } else {
+                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        }
+                    })
+                    .catch(() => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        if (++attempts >= maxAttempts) {
+                            this.devInfoPollHandle = 0;
+                            fail(this.$t('home.RefreshDevInfoTimeout'));
+                        } else {
+                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        }
+                    });
+            };
+
+            fetch('/api/devinfo/refresh?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (generation !== this.devInfoPollGeneration) {
+                        return;
+                    }
+                    if (response.type != 'success') {
+                        fail(response.message || this.$t('home.RefreshDevInfoFailed'));
+                        return;
+                    }
+                    this.devInfoList.valid_data = false;
+                    this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                })
+                .catch(() => {
+                    fail(this.$t('home.RefreshDevInfoFailed'));
+                });
+        },
         startDevInfoPolling(serial: string) {
             this.stopDevInfoPolling();
             const generation = ++this.devInfoPollGeneration;
@@ -976,6 +1064,7 @@ export default defineComponent({
         },
         stopDevInfoPolling() {
             this.devInfoPollGeneration++;
+            this.devInfoRefreshPending = false;
             if (this.devInfoPollHandle) {
                 clearTimeout(this.devInfoPollHandle);
                 this.devInfoPollHandle = 0;

@@ -104,7 +104,8 @@ public:
 
     virtual bool sendStatsRequest() = 0;
     virtual bool sendAlarmLogRequest(const bool force = false) = 0;
-    virtual bool sendDevInfoRequest() = 0;
+    // force: enqueue even if polling is disabled (used by the manual refresh in the web UI)
+    virtual bool sendDevInfoRequest(const bool force = false) = 0;
     virtual bool sendSystemConfigParaRequest() = 0;
     virtual bool sendActivePowerControlRequest(float limit, const PowerLimitControlType type) = 0;
     virtual bool resendActivePowerControlRequest() = 0;

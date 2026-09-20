@@ -12,4 +12,5 @@ private:
     void onDevInfoStatus(AsyncWebServerRequest* request);
     void onFirmwareUpdateStart(AsyncWebServerRequest* request);
     void onFirmwareUpdateAbort(AsyncWebServerRequest* request);
+    void onDevInfoRefresh(AsyncWebServerRequest* request);
 };

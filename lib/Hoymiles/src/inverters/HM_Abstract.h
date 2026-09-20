@@ -14,7 +14,7 @@ public:
     explicit HM_Abstract(HoymilesRadio* radio, const uint64_t serial);
     bool sendStatsRequest();
     bool sendAlarmLogRequest(const bool force = false);
-    bool sendDevInfoRequest();
+    bool sendDevInfoRequest(const bool force = false);
     bool sendSystemConfigParaRequest();
     bool sendActivePowerControlRequest(float limit, const PowerLimitControlType type);
     bool resendActivePowerControlRequest();

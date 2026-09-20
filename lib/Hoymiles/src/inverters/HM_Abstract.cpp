@@ -67,9 +67,9 @@ bool HM_Abstract::sendAlarmLogRequest(const bool force)
     return true;
 }
 
-bool HM_Abstract::sendDevInfoRequest()
+bool HM_Abstract::sendDevInfoRequest(const bool force)
 {
-    if (!getEnablePolling()) {
+    if (!force && !getEnablePolling()) {
         return false;
     }
 
@@ -313,9 +313,6 @@ void HM_Abstract::onFirmwareRowCompleted()
             _firmwareUpdateResult = FirmwareUpdateResult::Success;
             _firmwareUpdateProgress = 100;
             closeFirmwareSource_unlocked();
-            // The inverter now runs a different image: drop the cached
-            // firmware/hardware info so Hoymiles::loop() re-requests it.
-            DevInfo()->invalidate();
         }
     }
 }

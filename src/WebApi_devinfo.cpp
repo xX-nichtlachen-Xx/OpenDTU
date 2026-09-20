@@ -340,6 +340,7 @@ void WebApiDevInfoClass::init(AsyncWebServer& server, Scheduler& scheduler)
     server.on("/api/devinfo/status", HTTP_GET, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onDevInfoStatus, this, _1)));
     server.on(AsyncURIMatcher::exact("/api/devinfo/update"), HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateStart, this, _1)));
     server.on("/api/devinfo/update/abort", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onFirmwareUpdateAbort, this, _1)));
+    server.on("/api/devinfo/refresh", HTTP_POST, static_cast<ArRequestHandlerFunction>(std::bind(&WebApiDevInfoClass::onDevInfoRefresh, this, _1)));
 }
 
 void WebApiDevInfoClass::onDevInfoStatus(AsyncWebServerRequest* request)
@@ -467,6 +468,61 @@ void WebApiDevInfoClass::onFirmwareUpdateAbort(AsyncWebServerRequest* request)
 
     retMsg["type"] = "success";
     retMsg["message"] = "Update aborted!";
+    retMsg["code"] = WebApiError::GenericSuccess;
+
+    WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+}
+
+// Drops the cached device info and asks the inverter for it again, regardless
+// of whether polling is enabled. The UI polls /api/devinfo/status until
+// valid_data is true again.
+void WebApiDevInfoClass::onDevInfoRefresh(AsyncWebServerRequest* request)
+{
+    if (!WebApi.checkCredentials(request)) {
+        return;
+    }
+
+    AsyncJsonResponse* response = new AsyncJsonResponse();
+    auto& retMsg = response->getRoot();
+    const uint64_t serial = WebApi.parseSerialFromRequest(request);
+
+    if (serial == 0) {
+        retMsg["type"] = "danger";
+        retMsg["message"] = "Serial must be a number > 0!";
+        retMsg["code"] = WebApiError::InverterSerialZero;
+        WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+        return;
+    }
+
+    auto inv = Hoymiles.getInverterBySerial(serial);
+    if (inv == nullptr) {
+        retMsg["type"] = "danger";
+        retMsg["message"] = "Invalid inverter specified!";
+        retMsg["code"] = WebApiError::PowerInvalidInverter;
+        WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+        return;
+    }
+
+    if (inv->getFirmwareUpdateRunning()) {
+        retMsg["type"] = "warning";
+        retMsg["message"] = "Firmware update is running!";
+        retMsg["code"] = WebApiError::GenericInternalServerError;
+        WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+        return;
+    }
+
+    inv->DevInfo()->invalidate();
+
+    if (!inv->sendDevInfoRequest(true)) {
+        retMsg["type"] = "danger";
+        retMsg["message"] = "Device info request could not be sent!";
+        retMsg["code"] = WebApiError::GenericInternalServerError;
+        WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
+        return;
+    }
+
+    retMsg["type"] = "success";
+    retMsg["message"] = "Device info refresh requested!";
     retMsg["code"] = WebApiError::GenericSuccess;
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
