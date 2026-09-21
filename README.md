@@ -12,7 +12,7 @@ Firmware files are located in: ./Firmware
 Handle with care and on your own risk!
 PSRAM is optional now!
 It is recommended to disable all NRF24/CMT2300A/Inverter traffic during the update.
-Update takes about half an hour per inverter.
+Update takes about 10 minutes per inverter.
 
 Upload Firmware File.
 Start Update.
@@ -35,10 +35,10 @@ Fimware files are stored in (./Firmware)-
 | 0   | 1     | 1    | 1   | 0 | 0 | 1   | 2718 / 1.0.8     | 78  | **1143/1144/1144/1410/1412** | HMS 2T / HMS_W_2T |
 | 0   | 1     | 1    | 1   | 0 | 0 | 1   | 2845 / 1.3.9     | 4A  | **1143/1144/1144/1410/1412** | HMS 2T / HMS_W_2T |
 | 0   | 1     | 1    | 1   | 0 | 0 | 2   | 2778 / 1.1.4     | 17  | **1146** | HMS 2T US |
-| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 272B / 1.0.27   | 65  | **1164** | HMS 4T |
-| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 2780 / 1.1.12   | 10  | **1164** | HMS 4T |
+| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 272B / 1.0.27   | 65  | **1164** | HMS 4T (no DPL)|
+| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 2780 / 1.1.12   | 10  | **1164** | HMS 4T (DPL)|
 | 0   | 1     | 2    | 1   | 0 | 0 | 0   | 2786 / 1.1.18   | 0A  | **1164** | HMS 4T Thailand|
-| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 4E24 / 2.0.4    | 45  | **1164** | HMS 4T |
+| 0   | 1     | 2    | 1   | 0 | 0 | 0   | 4E24 / 2.0.4    | 45  | **1164** | HMS 4T (no DPL, avoid using it for Zero Export)|
 | 0   | 4     | 2    | 0   | 0 | 0 | 0   | 2719 / 1.0.9     | 57  | **1162** | HME1 4T MI|
 | 0   | 1     | 2    | 2   | 0 | 0 | 0   | 2719 / 1.0.9     | 67  | **1165** | HMS 4T 2000B_T |
 | 0   | 1     | 2    | 1   | 1 | 0 | 1   | 4E25 / 2.0.5     | 42  | **1166/1421** | HMS 4T 2000C_B |
