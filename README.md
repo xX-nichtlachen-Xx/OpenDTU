@@ -2,7 +2,7 @@
 
 
 
-Easily use your encrypted Hoymiles inverter with this openDTU fork.
+Easely use your encrypted Hoymiles inverter with this openDTU fork.
 
 
 Known hoymiles inverter firmware versions that need decryption:
