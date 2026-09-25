@@ -6,6 +6,11 @@ You can adjust the used Power Factor now.
 You can adjust the Reactive Power now.
 You can adjust the total generated energy values.
 
+Infos in:
+
+Infosheet_GridSupport_DPL_EN.md
+
+Infoblatt_Netzfunktionen_DPL_DE.md
 
 Handle with care and on your own risk!
 Testetd with HM/S Inverters only!
