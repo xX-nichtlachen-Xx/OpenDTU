@@ -81,6 +81,9 @@ Two simple rules explain how they combine:
   dead grid.
 - What you notice: nothing in normal operation; on grid loss the inverter shuts off and stays off
   until the grid returns. This always takes priority over everything else.
+- On/off: when switched **on**, it does more than just watch the limits — it actively looks for a
+  persistent abnormal frequency deviation and disconnects if it lasts; when switched **off**, only
+  the standard over/under voltage & frequency windows guard against a lost grid.
 
 ---
 
@@ -103,7 +106,8 @@ Notes:
 - The four reactive-power features are mutually exclusive. A grid profile normally activates
   exactly one; if several were enabled at once, the inverter still applies only ONE, by a fixed
   priority — **Volt-Var, then Watt-Power-Factor, then Specified Power Factor, then Reactive
-  Power Control** — and the others are ignored. They never add up.
+  Power Control, then a fifth curve-based reactive mode** — and the others are ignored. They
+  never add up.
 - Active and reactive power share the inverter's total capacity, so at very high output the
   available reactive support is reduced (and vice-versa).
 - Island Detection is independent protection; when it disconnects, all output stops.

@@ -86,6 +86,9 @@ Zwei einfache Regeln erklären das Zusammenspiel:
   ein totes Netz speist.
 - Was man merkt: im Normalbetrieb nichts; bei Netzausfall schaltet das Gerät ab und bleibt aus,
   bis das Netz zurück ist. Das hat immer Vorrang vor allem anderen.
+- An/Aus: **eingeschaltet** überwacht sie nicht nur die Grenzwerte, sondern sucht aktiv nach einer
+  anhaltenden abnormalen Frequenzabweichung und trennt, wenn sie andauert; **ausgeschaltet**
+  schützen nur die normalen Über-/Unterspannungs- und -frequenzfenster gegen ein fehlendes Netz.
 
 ---
 
@@ -109,8 +112,8 @@ Hinweise:
 - Die vier Blindleistungs-Funktionen schließen sich gegenseitig aus. Ein Netzprofil aktiviert
   normalerweise genau eine; wären mehrere gleichzeitig aktiv, wendet der Wechselrichter
   trotzdem nur EINE an — nach fester Priorität: **Volt-Var, dann Watt-Power-Factor, dann
-  fester Leistungsfaktor (SPF), dann Blindleistungssteuerung (RPC)** — die übrigen werden
-  ignoriert. Sie summieren sich nie.
+  fester Leistungsfaktor (SPF), dann Blindleistungssteuerung (RPC), dann ein fünfter
+  kurvenbasierter Blindleistungsmodus** — die übrigen werden ignoriert. Sie summieren sich nie.
 - Wirk- und Blindleistung teilen sich die Gesamtleistung des Geräts; bei sehr hoher Ausgangs-
   leistung ist daher weniger Blindleistungs-Stützung möglich (und umgekehrt).
 - Die Inselnetz-Erkennung ist ein unabhängiger Schutz; wenn sie trennt, stoppt jede Einspeisung.
