@@ -1,0 +1,99 @@
+================================================================================
+Hoymiles Inverter DSP Firmware — Change Log
+================================================================================
+Scope: HM (1T/2T/4T), HMS (1T/2T/4T), HMT (6T).
+
+HM-1T   V01.00.17 -> V01.01.00
+  Added:
+    - Control loop soft-foldback limiter (scales input down ~0.1x on overshoot).
+    - Grid-frequency in-band debounce counter.
+    - Explicit power-limit COMMIT sub-mode (0x40) in the 0x51 control path.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 reply builders refactored.
+    - RF re-join / backoff scheduling reworked.
+  Removed:
+    - Alarm-history read dropped its secondary latched/priority alarm table
+      (now scans only the live event ring).
+
+HM-2T   V01.00.16 -> V01.01.02
+  Added:
+    - Control loop soft-foldback limiter.
+    - Grid-frequency in-band debounce counter.
+    - Explicit power-limit COMMIT sub-mode (0x40).
+    - Phase-aware grid support (2-phase / 3-phase) with volt-watt + freq-watt derating.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 command/reply layer refactored.
+    - New SCI/UART service path added.
+  Removed:
+    - Nothing.
+
+
+HM-4T   V01.00.18 -> V01.01.03
+  Added:
+    - Control loop soft-foldback limiter.
+    - Grid-frequency in-band debounce counter.
+    - Explicit power-limit COMMIT sub-mode (0x40).
+    - Multi-channel phase-aware grid support / derating.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 reply builders refactored.
+  Removed:
+    - Nothing confirmed.
+
+
+HMS-1T
+  - Two builds on different chips, no version-to-version delta available:
+    MI V02.00.02 (TMS320F2803x) and B V02.00.00 (F280049). Nothing to diff.
+
+
+HMS-2T / HMS-W-2T   V01.00.08 -> V01.03.09
+  Added:
+    - Expanded telemetry / measurement scaling and formatting.
+  Changed:
+    - Grid-protection code paths reworked.
+    - Command / selector layer reworked.
+  Removed:
+    - Nothing.
+
+
+HMS-4T   V01.00.27 -> V01.01.12
+  Added:
+    - DC-input fault detector, alarm code 223 (0xDF).
+    - Dynamic power limit: per-channel connect/disconnect margin (throttle-down and
+      reconnect gated per MPPT input).
+  Changed:
+    - Nothing else of substance.
+  Removed:
+    - Nothing.
+
+HMS-4T   V01.01.12 -> V02.00.04
+  Added:
+    - Connect/disconnect decision logic in the new controller.
+    - Dynamic power limit: guaranteed ~2% minimum floor on the applied limit.
+  Changed:
+    - Dynamic power limit applier consolidated into one control loop (limit ramping
+      with 5-tick up/down hysteresis, min/max clamping against rated/per-input ceilings).
+    - Frame receive/validate and telemetry/record builder re-implemented.
+  Removed:
+    - Nothing.
+
+HMS-4T   V01.01.12 -> V01.01.18 (Thailand)
+  Added:
+    - Nothing.
+  Changed:
+    - Regional grid-code re-tuning (voltage/frequency trip limits; exact numbers).
+  Removed:
+    - Nothing.
+
+
+HMT-6T   V01.00.10 -> V01.02.27
+  Added:
+    - Record / Waveform mode: MainCmd 0x32 configures a triggered per-channel data
+      recorder; captured data read back via SubCmd 0x13.
+  Changed:
+    - Alarm handling reworked.
+    - SubCommand dispatch reworked.
+  Removed:
+    - Nothing.
