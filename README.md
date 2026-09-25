@@ -12,6 +12,9 @@ Infos in:
 
 [Infoblatt_Netzfunktionen_DPL_DE.md](https://github.com/xX-nichtlachen-Xx/OpenDTU/blob/GridProfileSelector_Editor/Infoblatt_Netzfunktionen_DPL_DE.md)
 
+[Fiche_Info_Fonctions_Reseau_DPL_FR.md](https://github.com/xX-nichtlachen-Xx/OpenDTU/blob/GridProfileSelector_Editor/Fiche_Info_Fonctions_Reseau_DPL_FR.md)
+
+
 Handle with care and on your own risk!
 Testetd with HM/S Inverters only!
 (Limited to 1T, 2T and 4T!!)
