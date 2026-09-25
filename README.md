@@ -8,9 +8,9 @@ You can adjust the total generated energy values.
 
 Infos in:
 
-Infosheet_GridSupport_DPL_EN.md
+[Infosheet_GridSupport_DPL_EN.md](https://github.com/xX-nichtlachen-Xx/OpenDTU/blob/GridProfileSelector_Editor/Infosheet_GridSupport_DPL_EN.md)
 
-Infoblatt_Netzfunktionen_DPL_DE.md
+[Infoblatt_Netzfunktionen_DPL_DE.md](https://github.com/xX-nichtlachen-Xx/OpenDTU/blob/GridProfileSelector_Editor/Infoblatt_Netzfunktionen_DPL_DE.md)
 
 Handle with care and on your own risk!
 Testetd with HM/S Inverters only!
