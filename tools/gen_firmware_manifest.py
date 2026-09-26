@@ -134,8 +134,42 @@ def git_head(repo_root: Path) -> str | None:
         return None
 
 
-def analyze_hex(path: Path) -> dict:
+def git_autocrlf(repo_root: Path) -> bool:
+    try:
+        value = subprocess.run(
+            ["git", "config", "--get", "core.autocrlf"], cwd=repo_root, capture_output=True, text=True
+        ).stdout.strip().lower()
+    except FileNotFoundError:
+        return False
+    return value in ("true", "input")
+
+
+def served_bytes(path: Path, repo_root: Path) -> bytes:
+    """The bytes GitHub will serve for this file, i.e. the git blob.
+
+    On Windows checkouts with core.autocrlf=true the working copy has CRLF
+    while the blob (and therefore raw.githubusercontent.com) has LF. The size
+    and hash in the manifest must describe the blob, otherwise the browser's
+    size check fails after every download. Tracked files are read from the
+    index; untracked ones are normalised the way git will normalise them on
+    commit.
+    """
+    rel = path.relative_to(repo_root).as_posix()
+    try:
+        result = subprocess.run(
+            ["git", "show", f":{rel}"], cwd=repo_root, capture_output=True, check=True
+        )
+        return result.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
     raw = path.read_bytes()
+    if git_autocrlf(repo_root):
+        raw = raw.replace(b"\r\n", b"\n")
+    return raw
+
+
+def analyze_hex(path: Path, repo_root: Path) -> dict:
+    raw = served_bytes(path, repo_root)
     text = raw.decode("ascii", errors="strict")
     rows = 0
     has_eof = False
@@ -217,7 +251,7 @@ def main() -> int:
     for path in sorted(fw_dir.rglob("*.hex"), key=lambda p: (len(p.relative_to(fw_dir).parts), str(p).lower())):
         rel = path.relative_to(fw_dir)
         try:
-            info = analyze_hex(path)
+            info = analyze_hex(path, repo_root)
         except (ValueError, UnicodeDecodeError) as exc:
             print(f"skip: {exc}", file=sys.stderr)
             errors += 1
