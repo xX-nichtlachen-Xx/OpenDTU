@@ -5,7 +5,7 @@ Can be used as an alternative to the original Hoymiles DTU for updating inverter
 The Hoymiles DTU/Cloud itself is neither involved nor required.
 Supported models: Hoymiles HM / HMS / HMT 300, 350, 400, 600, 700, 800, 1000, 1200, 1500, 1600, 1800, 2000, 2250.
 If the update aborts or the inverter becomes unresponsive after flashing, perform a reflash.
-Firmware files are located in: ./Firmware
+Firmware files are located in: ./Firmware and can be downloaded in the ui.
 
 Handle with care and on your own risk!
 PSRAM is optional now!
@@ -27,10 +27,13 @@ Fimware files are stored in (./Firmware)-
 |-----|-------|------|------|---|--|----|------------------|------|----------|-------------------|
 | 0   | 1     | 0    | 0   | 0 | 0 | 0   | 2721 / 1.0.17   | 81  | **1121** | HM 1T MI |
 | 0   | 1     | 0    | 0   | 0 | 0 | 0   | 2774 / 1.1.0    | 2E  | **1121** | HM 1T MI |
+| 0   | 1     | 0    | 0   | 0 | 0 | 0   | 2904 / 1.5.0    | 9C  | **1121** | HM 1T MI encrypted radio|
 | 0   | 1     | 1    | 0   | 0 | 0 | 0   | 2720 / 1.0.16   | 81  | **1141** | HM 2T MI |
 | 0   | 1     | 1    | 0   | 0 | 0 | 0   | 2776 / 1.1.2    | 2B  | **1141** | HM 2T MI |
+| 0   | 1     | 1    | 0   | 0 | 0 | 0   | 2905 / 1.5.1    | 9A  | **1141** | HM 2T MI encrypted radio|
 | 0   | 1     | 2    | 0   | 0 | 0 | 0   | 2722 / 1.0.18   | 7E  | **1161** | HM 4T MI |
 | 0   | 1     | 2    | 0   | 0 | 0 | 0   | 2777 / 1.1.3    | 29  | **1161** | HM 4T MI |
+| 0   | 1     | 2    | 0   | 0 | 0 | 0   | 2904 / 1.5.0    | 9A  | **1161** | HM 4T MI encrypted radio|
 | 0   | 1     | 0    | 0   | 0 | 0 | 0   | 4E22 / 2.0.2     | 59  | **1124** | HMS 1T MI (HM-Board) |
 | 0   | 1     | 0    | 0   | 0 | 0 | 1   | 4E20 / 2.0.0     | 5A  | **1125/1400/1403** | HMS 1T B |
 | 0   | 1     | 0    | 0   | 0 | 0 | 2   | 2774 / 1.1.0     | 2C  | **1126** | HMS 1T US |
