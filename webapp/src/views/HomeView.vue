@@ -404,12 +404,19 @@
                     devInfoList.firmware_update_running ||
                     firmwareUpdateStartPending
                 "
-                @click="onStartFirmwareUpdate(devInfoList.serial)"
+                @click="onOpenFirmwareSource(devInfoList.serial)"
             >
                 {{ devInfoList.firmware_update_running ? $t('home.UpdateRunning') : $t('home.StartUpdate') }}
             </button>
         </template>
     </ModalDialog>
+
+    <FirmwareSourceDialog
+        ref="firmwareSourceDialog"
+        :serial="firmwareSourceSerial"
+        :modelName="devInfoList.hw_model_name || ''"
+        @flash="onFlashFromSource"
+    />
 
     <ModalDialog modalId="gridProfileView" :title="$t('home.GridProfile')" :loading="gridProfileLoading">
         <GridProfile :gridProfileList="gridProfileList" :gridProfileRawList="gridProfileRawList" />
@@ -562,6 +569,7 @@ import BootstrapAlert from '@/components/BootstrapAlert.vue';
 import DataAgeDisplay from '@/components/DataAgeDisplay.vue';
 import DevInfo from '@/components/DevInfo.vue';
 import EventLog from '@/components/EventLog.vue';
+import FirmwareSourceDialog from '@/components/FirmwareSourceDialog.vue';
 import GridProfile from '@/components/GridProfile.vue';
 import HintView from '@/components/HintView.vue';
 import InverterChannelInfo from '@/components/InverterChannelInfo.vue';
@@ -599,6 +607,7 @@ export default defineComponent({
         DataAgeDisplay,
         DevInfo,
         EventLog,
+        FirmwareSourceDialog,
         GridProfile,
         HintView,
         InverterChannelInfo,
@@ -666,6 +675,8 @@ export default defineComponent({
             firmwareUpdateAlertType: 'info',
             showFirmwareUpdateAlert: false,
             firmwareUpdateStartPending: false,
+            firmwareSourceView: {} as bootstrap.Modal,
+            firmwareSourceSerial: '',
 
             isWebsocketConnected: false,
         };
@@ -688,6 +699,14 @@ export default defineComponent({
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
         document.getElementById('devInfoView')?.addEventListener('hide.bs.modal', () => {
             this.stopDevInfoPolling();
+        });
+        this.firmwareSourceView = new bootstrap.Modal('#firmwareSourceView');
+        // Whatever closed the source dialog (flash, cancel, ESC, backdrop):
+        // return to the inverter info dialog it was opened from.
+        document.getElementById('firmwareSourceView')?.addEventListener('hidden.bs.modal', () => {
+            if (this.firmwareSourceSerial) {
+                this.devInfoView.show();
+            }
         });
     },
     unmounted() {
@@ -854,6 +873,23 @@ export default defineComponent({
                 });
 
             this.devInfoView.show();
+        },
+        // "Start Update" first asks where the firmware image should come from
+        // (already on the DTU / GitHub / local file); the actual flash is
+        // triggered from that dialog via onFlashFromSource().
+        onOpenFirmwareSource(serial: string) {
+            this.firmwareSourceSerial = serial;
+            const dialog = this.$refs.firmwareSourceDialog as InstanceType<typeof FirmwareSourceDialog>;
+            dialog.reset();
+            this.devInfoView.hide();
+            this.firmwareSourceView.show();
+        },
+        onFlashFromSource() {
+            const serial = this.firmwareSourceSerial;
+            // Hiding re-opens the inverter info dialog (see mounted()), which
+            // then shows the progress bar once the update has been started.
+            this.firmwareSourceView.hide();
+            this.onStartFirmwareUpdate(serial);
         },
         onStartFirmwareUpdate(serial: string) {
             this.firmwareUpdateAlertMessage = '';

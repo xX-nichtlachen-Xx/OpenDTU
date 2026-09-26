@@ -352,6 +352,26 @@ void WebApiFileClass::onFirmwareInfoGet(AsyncWebServerRequest* request)
     AsyncJsonResponse* response = new AsyncJsonResponse();
     auto& root = response->getRoot();
     root["name"] = g_firmwareUploadOriginalName;
+    root["variant"] = getFirmwareUploadVariant();
+
+    // Describe whatever image is currently buffered so the webapp can offer
+    // "use the file already on the DTU" without re-uploading it. The size is
+    // the raw ASCII byte count, i.e. exactly what the upload delivered, so the
+    // browser can compare it with the number of bytes it sent.
+    size_t psramLen = 0;
+    const uint8_t* psramPtr = peekFirmwareUploadInPsram(psramLen);
+    const esp_partition_t* otaPartition = nullptr;
+    size_t otaLen = 0;
+    if (psramPtr != nullptr && psramLen > 0) {
+        root["source"] = "psram";
+        root["size"] = static_cast<uint32_t>(psramLen);
+    } else if (getFirmwareUploadInInactiveOtaSlot(otaPartition, otaLen)) {
+        root["source"] = "ota";
+        root["size"] = static_cast<uint32_t>(otaLen);
+    } else {
+        root["source"] = "none";
+        root["size"] = 0;
+    }
 
     WebApi.sendJsonResponse(request, response, __FUNCTION__, __LINE__);
 }

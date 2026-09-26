@@ -14,8 +14,12 @@ PSRAM is optional now!
 It is recommended to disable all NRF24/CMT2300A/Inverter traffic during the update.
 Update takes about 10 minutes per inverter.
 
-Upload Firmware File.
-Start Update.
+Start Update: choose the firmware source (file already on the DTU, pick from GitHub, or upload a local .hex).
+The GitHub picker reads `Firmware/manifest.json`; regenerate it after adding or changing firmware files:
+
+```sh
+python tools/gen_firmware_manifest.py
+```
 
 [Manual](https://github.com/tbnobody/OpenDTU/discussions/3168/).
 
