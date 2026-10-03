@@ -3,6 +3,10 @@
 
 #include <ESPAsyncWebServer.h>
 #include <TaskSchedulerDeclarations.h>
+#include <cstddef>
+#include <cstdint>
+#include <esp_partition.h>
+#include <vector>
 
 class WebApiFileClass {
 public:
@@ -13,6 +17,18 @@ private:
     void onFileDelete(AsyncWebServerRequest* request);
     void onFileDeleteAll(AsyncWebServerRequest* request);
     void onFileListGet(AsyncWebServerRequest* request);
+    void onFirmwareInfoGet(AsyncWebServerRequest* request);
     void onFileUploadFinish(AsyncWebServerRequest* request);
     void onFileUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
 };
+
+bool writeFirmwareUploadToPsram(const uint8_t* data, size_t len, const String& variant = String());
+bool getFirmwareUploadFromPsram(std::vector<uint8_t>& buffer);
+const uint8_t* peekFirmwareUploadInPsram(size_t& outLen);
+String getFirmwareUploadVariant();
+void setFirmwareUploadVariant(const String& variant);
+void clearFirmwareUploadFromPsram();
+
+bool writeFirmwareUploadToInactiveOtaSlot(const uint8_t* data, size_t len, const String& variant = String());
+bool getFirmwareUploadInInactiveOtaSlot(const esp_partition_t*& outPartition, size_t& outLen);
+void clearFirmwareUploadFromInactiveOtaSlot();

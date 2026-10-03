@@ -1,0 +1,242 @@
+================================================================================
+Hoymiles Inverter DSP Firmware — Change Log
+================================================================================
+Scope: HM (1T/2T/4T), HMS (1T/2T/4T), HMT (6T).
+
+HM-1T   V01.00.14 -> V01.00.17   (built 2023-06-30)
+  Added:
+    - Second SubCmd 0x15 alarm-history sub-handler: the alarm read now dispatches
+      to two distinct scanners in the 0x15 tree - a 2-source variant (live event
+      ring + 12-entry latched priority table) and a 3-source variant (both rings
+      + latched table). V01.00.14 had a single 469-word scanner that always
+      walked all three sources.
+  Changed:
+    - Full recompile / large-scale internal refactor between the 2021-12-09 and
+      2023-06-30 builds: ~397 of ~500 diffable functions show token-level
+      changes, most cosmetic (compiler register reallocation, code relocation).
+      No change to the top-level MainCmd command set (0x0a, 0x0b, 0x0e, 0x15,
+      0x30, 0x31, 0x51, 0x52) and no change to the 0x30/0xFF selector parse
+      path.
+    - Alarm-history reader split (see Added); the monolithic 469-word scanner
+      is gone, replaced by two smaller handlers reached via the SubCmd 0x15
+      dispatcher.
+  Removed:
+    - Nothing observable at the protocol / limit / PDL / telemetry level.
+
+HM-1T   V01.00.17 -> V01.01.00   (built 2024-01)
+  Added:
+    - Control loop soft-foldback limiter (scales input down ~0.1x on overshoot).
+    - Grid-frequency in-band debounce counter.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 reply builders refactored.
+    - RF re-join / backoff scheduling reworked.
+  Removed:
+    - Alarm-history read dropped its secondary latched/priority alarm table
+      (now scans only the live event ring).
+    - Hidden 0x30 / 0xFF selector no longer returns values over the NRF radio
+      (confirmed on hardware): the command still parses, but its value-reply path was
+      reworked so it emits nothing; the request now only drives internal actions.
+
+HM-1T   V01.01.00 -> V01.05.00   (built 2026-08-12)
+  Added:
+    - AES-128 and SHA-256 in the radio path.
+  Changed:
+    - 
+  Removed:
+	- 
+
+HM-2T   V01.00.16 -> V01.01.02   (built 2024-01)
+  Added:
+    - Control loop soft-foldback limiter.
+    - Grid-frequency in-band debounce counter.
+    - Phase-aware grid support (2-phase / 3-phase) with volt-watt + freq-watt derating.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 command/reply layer refactored.
+    - New SCI/UART service path added.
+  Removed:
+    - Nothing.
+
+
+HM-2T   V01.01.02 -> V01.05.01   (built 2026-08-07)
+  Added:
+    - AES-128 and SHA-256 in the radio path. 
+  Changed:
+    - 
+  Removed:
+    - 
+
+HM-4T   V01.00.18 -> V01.01.03   (built 2024-02)
+  Added:
+    - Control loop soft-foldback limiter.
+    - Grid-frequency in-band debounce counter.
+    - Multi-channel phase-aware grid support / derating.
+  Changed:
+    - ePWM output config now runtime-switchable between two modes (was fixed).
+    - 0x51 reply builders refactored.
+  Removed:
+    - Nothing confirmed.
+
+
+HM-4T   V01.01.03 -> V01.05.00   (built 2026-08-10)
+  Added:
+    - AES-128 and SHA-256 in the radio path.
+  Changed:
+    - 
+  Removed:
+    - 
+
+HMS-1T
+  - Two builds on different chips, no version-to-version delta available:
+    MI V02.00.02 (TMS320F2803x, built 2025-12) and B V02.00.00 (F280049,
+    built 2025-09). Nothing to diff.
+
+
+HMS-2T / HMS-W-2T   V01.00.08 -> V01.03.09   (built 2024-10)
+  Added:
+    - Expanded telemetry / measurement scaling and formatting.
+  Changed:
+    - Grid-protection code paths reworked.
+    - Command / selector layer reworked.
+  Removed:
+    - Nothing.
+
+
+HMS-4T   V01.00.27 -> V01.01.12   (built 2024-09)
+  Added:
+    - DC-input fault detector, alarm code 223 (0xDF).
+    - Power Distribution Logic (PDL v1): the per-input limit applier was replaced.
+      1.0.27 split the limit into four equal quarters; 1.1.12 redistributes it
+      proportionally across the producing inputs, with a 5-tick up/down ramp
+      hysteresis, a controller-side 2% floor and a per-input -48 reconnect margin.
+  Changed:
+    - ActivePowerControl (0x51/0x0B) persistence bit: only type bit 1 (0x0002) makes
+      a limit persistent. 1.0.27 persisted on any type bit except bit 0, so the
+      HM-style 0x0100/0x0101 types are volatile from here on (0x0002/0x0003 persist).
+    - Volatile-limit floor moved to 20 permille in the handler (was 0.02 fraction).
+  Removed:
+    - Nothing.
+
+HMS-4T   V01.01.12 -> V02.00.04   (built 2024-12)
+  Added:
+    - DevControl sub-command 0x22: "zero-export / DTU-loss management" parameters
+      (enable, comm timeout in 0.1 s, fallback mode, ramp interval/step, fallback
+      limit). Defaults: disabled, 10 s, mode 0 (zero output), 10% fallback. Writing it
+      also applies the persistent limit and saves the record.
+    - DTU-loss machinery: when enabled, a silent DTU forces the limit ceiling to 0
+      (mode 0) or to the fallback limit (mode 1), with a ramp-up after recovery.
+    - Compact "group control" command handler (gated by the same enable flag).
+    - SystemConfigPara record type 3 (18 words / 36 bytes); an upgraded unit keeps
+      answering type 1 until the first persistent write re-stamps the record.
+    - PDL v2 in the controller: fair share over the inputs that actually produce (not
+      /4), reduction taken only from inputs above their share, measured-power seeding
+      on the first drop below rated, continuous commit after the 5-tick debounce,
+      entry threshold +20 W (was +2 W), a config gate back to plain equal split, a
+      zero-limit latch (<= 19 permille treated as stop), per-input 537 W cap, per-input
+      ceiling parameters in RAM (were ROM).
+  Changed:
+    - ActivePowerControl 0x0B no longer writes the commanded value into the record
+      word echoed by SystemConfigPara for volatile commands; the echoed limit is the
+      persistent word only (default 1100 permille). Volatile limits still apply and
+      persist in RAM until the next command or restart, but cannot be read back by any
+      0x15 sub-command.
+    - Handler-side 2% floor removed (the controller floor remains).
+    - Two limit ceilings (rated ramp + soft-start/DTU-loss) instead of one.
+    - 0x51 sub-command set: 0x06 (ACK only) and 0x22 added, 0x28 kept; 0x1E (state-2
+      trigger), 0x1F/0x20 (GPIO test toggles), 0x21 (timed flag), 0x32 and 0xFF (Init)
+    - Frame receive/validate and telemetry/record builder re-implemented.
+  Removed:
+    - MainCmd 0x31 dropped from the dispatcher.
+
+
+HMS-4T   V01.01.12 -> V01.01.18 (Thailand)   (built 2024-12)
+  Added:
+    - MainCmd 0x30 self-test / inspection command family (sub 0x00/0x01 start-stop
+      flags, 0x02 + one parameter, 0x03 + five parameters, 0xFF abort); procedures
+      1 and 2 with result tables read back through the 0x30 reply path.
+  Changed:
+    - Regional grid-code re-tuning (voltage/frequency trip limits; exact numbers
+      not resolvable from flash).
+    - Command layer is 1.1.x (bit-1 persistence, 20 permille floor, volatile limit
+      echoed in SystemConfigPara).
+  Removed:
+    - PDL: the main-loop limit applier is the 1.0.x equal-quarter split. None of the
+      1.1.12 PDL controller (hysteresis, -48 margin, redistribution) is present.
+
+
+HMS-4T   V01.01.18 (Thailand) -> V01.01.29  (Thailand) (build 2026-08-25, model 0x1012)
+  Added:
+    - Self-test family (MainCmd 0x30) extended: new procedure 3, a state machine
+      over the four DC inputs that drives the input switch GPIOs, waits up to 2000
+      ticks per step and judges the result against thresholds taken from the 0x30
+      sub 0x03 parameters (x0.1 and x0.02); 9-word result table. Procedure 2 (per-
+      input measurement) re-implemented with a new executor; 17-word result table.
+    - Real-time record: new status/flags word at record word 0x24 (procedure state
+      bits from the 0x490/0x496 flag words and DC-input state bits). Whether the
+      DTU-visible reply length includes it was not traced.
+  Changed:
+    - Reactive-power setpoint selection (Q modes 0-5): the model-specific corrections
+      keyed on rated power (1600/1800/2000 W with fixed +/-6..50 offsets) were removed
+      in favour of generic thresholds (0.72 / 0.21 of rated; -16 / +24 / +8 and
+      -36 / -6 / +20); routine shrank from 1001 to 371 words.
+    - Grid-support derating ramp (both channels): the event-recording side effect was
+      taken out of the ramp step and a direction-locked clamp was added.
+    - Parsed 0x50-tagged parameter record lost one 32-bit field (struct shifted by
+      two words); task scheduler lost its one-shot callback slot; the mode-5 branch of
+      the input-power scaling was removed.
+  Removed:
+    - MainCmd 0x52 sub-command 0x04 (three-word write into the device record, guarded
+      by tag 0xFF07). Sub-commands 0x00-0x03 remain.
+  Unchanged (relevant for DTU software):
+    - Command layer is 1.1.x:
+    - No PDL: the main-loop limit applier is the equal-quarter split, as in 1.1.18.
+    - Config-record layouts 1-4, temperature-derating floats F27-F29, alarm catalog.
+
+
+HMS-4T   V01.01.29 (Thailand) vs V01.01.90 (Thailand)  (build 2026-08-20, model 0x1012)
+  Added:
+    - Reactive-power setpoint selection: model-class-specific 1600 W corrections
+      are back on top of the generic thresholds that 1.1.29 had introduced. The
+      routine grew from 371 back to 1001 words. On top of the 1.1.29 outer
+      thresholds (0.72 / 0.55 / 0.39 / 0.31 of rated with +/-24 / -6 / +36 / -12
+      offsets), 1.1.90 re-adds a 1600 W branch in Q mode 3 (threshold 0.58 with
+      +8 and +24 offsets) and a Q mode 4 branch (-140 offset when p <= rated*0.31
+      and the phase-angle proxy <= -0.5). Other rated powers only see the 1.1.29
+      generic scheme.
+  Changed:
+    - Real-time record TX chain: the 431-word status/flag/scaling packer at
+      0x84E9B and its scheduling wrapper 0x845E2 are gone; the DAT_0000b880 == 3
+      branch of the >>1 scheduler now calls the (byte-identical) inverter-state
+      helper that used to sit at 0x8BD78 (0x8B793 in 1.1.90) instead. The old
+      alarm-bitfield-and-float-scaler that produced the outbound record at
+      buffer 0x440 has been split into smaller pieces reached from elsewhere;
+      the resulting frame layout was not fully re-traced.
+    - Main loop: >>9 flag branch dropped (one periodic slot removed; it was
+      already a no-op in 1.1.29). A new small helper (0x876EA) is inserted in
+      the >>1 branch immediately after the existing 0x8A5ED / 0xA95F handler
+      pair; it runs a small state machine over DAT_0000A4E5 / DAT_0000A4EC
+      (measurement/gate flags). Its exact function is not fully resolved.
+  Removed:
+    - Self-test procedure 3 (added in 1.1.29): the 240-word DC-input switch
+      state machine at 0x87B2F is gone, along with its wrapper 0x8F8A9 and the
+      per-input step / measurement helpers 0x8A727, 0x87FD3 and 0x8C056. The
+      dispatcher at 0x8AD15 (was 0x8BF89) still has cases 0 and 1 but the
+      case-3 branch that reached FUN_00087b2f has been dropped. Procedures 1
+      and 2 (start-stop / per-input measurement) remain.
+  Unchanged (relevant for DTU software):
+    - Command layer is unchanged from 1.1.29.
+    - No PDL: the main-loop limit applier is still the equal-quarter split.
+    - Config-record layouts 1-4, temperature-derating floats F27-F29, alarm
+      catalog.
+
+
+HMT-6T   V01.00.10 -> V01.02.27   (built 2024-06)
+  Added:
+    - Record / Waveform mode: MainCmd 0x32 configures a triggered per-channel data
+      recorder; captured data read back via SubCmd 0x13.
+  Changed:
+    - Alarm handling reworked.
+    - SubCommand dispatch reworked.
+  Removed:
+    - Nothing.

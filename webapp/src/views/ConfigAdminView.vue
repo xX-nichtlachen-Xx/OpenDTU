@@ -103,6 +103,44 @@
             <div class="alert alert-danger mt-3" role="alert" v-html="$t('fileadmin.RestoreHint')"></div>
         </CardElement>
 
+        <CardElement :text="$t('fileadmin.FirmwareUploadHeader')" textVariant="text-bg-primary" add-space>
+            <div v-if="firmwareUploadError" class="alert alert-danger" role="alert">
+                {{ firmwareUploadError }}
+            </div>
+            <div v-else-if="firmwareUploadSuccess" class="alert alert-success" role="alert">
+                {{ $t('fileadmin.FirmwareUploadSuccess') }}
+            </div>
+            <div class="row g-3 align-items-center form-group pt-2">
+                <div class="col-sm">
+                    <input
+                        class="form-control"
+                        type="file"
+                        ref="firmwareFile"
+                        accept=".hex"
+                        @change="onFirmwareFileChange"
+                    />
+                </div>
+                <div class="col-sm" v-if="firmwareFileSelected || firmwareUploadedName">
+                    {{ firmwareFileSelected ? firmwareFile.name : firmwareUploadedName }}
+                    <span v-if="!firmwareFileSelected && firmwareUploadedSize > 0" class="text-muted">
+                        ({{ formatByteSize(firmwareUploadedSize) }})
+                    </span>
+                </div>
+                <div class="col-sm">
+                    <button
+                        class="btn btn-primary"
+                        @click="uploadFirmwareFile"
+                        :disabled="firmwareUploading || !firmwareFileSelected"
+                    >
+                        {{ $t('fileadmin.Upload') }}
+                    </button>
+                </div>
+            </div>
+            <div class="alert alert-info mt-3" role="alert">
+                {{ $t('fileadmin.FirmwareUploadHint') }}
+            </div>
+        </CardElement>
+
         <CardElement :text="$t('fileadmin.ResetHeader')" textVariant="text-bg-primary" center-content add-space>
             <button class="btn btn-danger" @click="onFactoryResetModal">
                 {{ $t('fileadmin.FactoryResetButton') }}
@@ -142,7 +180,10 @@ import CardElement from '@/components/CardElement.vue';
 import ModalDialog from '@/components/ModalDialog.vue';
 import type { AlertResponse } from '@/types/AlertResponse';
 import type { FileInfo } from '@/types/File';
+import type { FirmwareBufferInfo } from '@/types/FirmwareManifest';
 import { authHeader, handleResponse } from '@/utils/authentication';
+import { FirmwareUploadError, formatByteSize, uploadInverterFirmware } from '@/utils/firmwareSource';
+import { intelHexErrorMessage, MAX_FIRMWARE_UPLOAD_SIZE, validateIntelHex } from '@/utils/intelHex';
 import type { Schema } from '@/utils/structure';
 import { hasStructure } from '@/utils/structure';
 import { waitRestart } from '@/utils/waitRestart';
@@ -181,6 +222,13 @@ export default defineComponent({
             progress: 0,
             UploadError: '',
             UploadSuccess: false,
+            firmwareUploading: false,
+            firmwareUploadError: '',
+            firmwareUploadSuccess: false,
+            firmwareFileSelected: false,
+            firmwareFile: {} as File,
+            firmwareUploadedName: '',
+            firmwareUploadedSize: 0,
             restoreFileSelect: 'config.json',
             restoreList: [
                 {
@@ -208,8 +256,17 @@ export default defineComponent({
     },
     created() {
         this.getFileList();
+        this.getFirmwareInfo();
     },
     methods: {
+        getFirmwareInfo() {
+            fetch('/api/file/firmware_info', { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data: FirmwareBufferInfo) => {
+                    this.firmwareUploadedName = data.name;
+                    this.firmwareUploadedSize = data.size || 0;
+                });
+        },
         getFileList() {
             this.loading = true;
             fetch('/api/file/list', { headers: authHeader() })
@@ -298,6 +355,76 @@ export default defineComponent({
                 }
             };
             reader.readAsText(this.file);
+        },
+        onFirmwareFileChange() {
+            const target = this.$refs.firmwareFile as HTMLInputElement;
+            if (target.files !== null && target.files[0]) {
+                this.firmwareFile = target.files[0];
+                this.firmwareFileSelected = true;
+                this.firmwareUploadError = '';
+                this.firmwareUploadSuccess = false;
+            } else {
+                this.firmwareFileSelected = false;
+            }
+        },
+        formatByteSize(bytes: number): string {
+            return formatByteSize(bytes);
+        },
+        async uploadFirmwareFile() {
+            this.firmwareUploading = true;
+            this.firmwareUploadError = '';
+            this.firmwareUploadSuccess = false;
+            this.progress = 0;
+
+            const target = this.$refs.firmwareFile as HTMLInputElement;
+            const file = target.files && target.files[0] ? target.files[0] : null;
+            if (!file) {
+                this.firmwareUploadError = this.$t('fileadmin.NoFileSelected');
+                this.firmwareUploading = false;
+                return;
+            }
+
+            try {
+                const bytes = await file.arrayBuffer();
+
+                // Validate in the browser first (per-line checksums, EOF record,
+                // size limit) so a broken file never reaches the DTU.
+                if (bytes.byteLength > MAX_FIRMWARE_UPLOAD_SIZE) {
+                    throw new Error(
+                        this.$t('firmwaresource.TooLarge', {
+                            size: formatByteSize(bytes.byteLength),
+                            max: formatByteSize(MAX_FIRMWARE_UPLOAD_SIZE),
+                        })
+                    );
+                }
+                const validation = validateIntelHex(new TextDecoder().decode(bytes));
+                if (!validation.ok) {
+                    const message = intelHexErrorMessage(validation);
+                    throw new Error(this.$t('firmwaresource.' + message.key, message.params));
+                }
+
+                await uploadInverterFirmware(new Blob([bytes]), file.name, (pct) => {
+                    this.progress = pct;
+                });
+
+                this.firmwareUploadSuccess = true;
+                this.firmwareUploadedName = file.name;
+                this.firmwareUploadedSize = bytes.byteLength;
+                this.firmwareFileSelected = false;
+                target.value = '';
+                this.getFileList();
+                this.getFirmwareInfo();
+            } catch (e) {
+                if (e instanceof FirmwareUploadError) {
+                    this.firmwareUploadError = e.message || this.$t('fileadmin.FirmwareUploadError');
+                } else if (e instanceof Error && e.message) {
+                    this.firmwareUploadError = e.message;
+                } else {
+                    this.firmwareUploadError = this.$t('fileadmin.FirmwareUploadError');
+                }
+            } finally {
+                this.firmwareUploading = false;
+            }
         },
         onUpload() {
             this.uploading = true;

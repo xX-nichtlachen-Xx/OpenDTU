@@ -4,14 +4,20 @@
  */
 #include "HM_Abstract.h"
 #include "HoymilesRadio.h"
+#include "HoymilesRadio_NRF.h"
 #include "commands/ActivePowerControlCommand.h"
 #include "commands/AlarmDataCommand.h"
 #include "commands/DevInfoAllCommand.h"
 #include "commands/DevInfoSimpleCommand.h"
+#include "commands/FirmwareDataCommand.h"
 #include "commands/GridOnProFilePara.h"
 #include "commands/PowerControlCommand.h"
 #include "commands/RealTimeRunDataCommand.h"
 #include "commands/SystemConfigParaCommand.h"
+#include "utils/IntelHex.h"
+#include <algorithm>
+#include <cstring>
+#include <esp_heap_caps.h>
 
 HM_Abstract::HM_Abstract(HoymilesRadio* radio, const uint64_t serial)
     : InverterAbstract(radio, serial)
@@ -61,9 +67,9 @@ bool HM_Abstract::sendAlarmLogRequest(const bool force)
     return true;
 }
 
-bool HM_Abstract::sendDevInfoRequest()
+bool HM_Abstract::sendDevInfoRequest(const bool force)
 {
-    if (!getEnablePolling()) {
+    if (!force && !getEnablePolling()) {
         return false;
     }
 
@@ -193,6 +199,372 @@ bool HM_Abstract::sendGridOnProFileParaRequest()
     _radio->enqueCommand(cmd);
 
     return true;
+}
+
+bool HM_Abstract::sendFirmwareUpdateRequest(const uint8_t* rawAscii,
+                                            const size_t rawAsciiLen,
+                                            const esp_partition_t* otaPartition,
+                                            const size_t otaPartitionLen)
+{
+    if (!getEnableCommands()) {
+        return false;
+    }
+
+    const bool hasPsramSource = (rawAscii != nullptr && rawAsciiLen > 0);
+    const bool hasOtaSource = (otaPartition != nullptr && otaPartitionLen > 0);
+    if (hasPsramSource == hasOtaSource) {
+        return false; // must have exactly one source
+    }
+
+    _firmwareUpdateAborted = false;
+    _firmwareUpdateResult = FirmwareUpdateResult::None;
+    _firmwareUpdateProgress = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        closeFirmwareSource_unlocked();
+
+        _fwPsramAscii = hasPsramSource ? rawAscii : nullptr;
+        _fwPsramAsciiLen = hasPsramSource ? rawAsciiLen : 0;
+        _fwOtaPartition = hasOtaSource ? otaPartition : nullptr;
+        _fwOtaLen = hasOtaSource ? otaPartitionLen : 0;
+
+        if (!buildFirmwareLineIndex_unlocked() || _fwLineCount == 0) {
+            closeFirmwareSource_unlocked();
+            return false;
+        }
+        _fwNextLineIndex = 0;
+    }
+
+    return enqueueNextFirmwareRow();
+}
+
+bool HM_Abstract::enqueueNextFirmwareRow()
+{
+    if (_firmwareUpdateAborted) {
+        return false;
+    }
+
+    char lineAscii[544];
+    uint8_t rowBytes[272];
+    size_t rowLen = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        while (_fwNextLineIndex < _fwLineCount) {
+            const size_t index = _fwNextLineIndex++;
+
+            size_t asciiLen = 0;
+            if (!readFirmwareLineAscii_unlocked(index, lineAscii, sizeof(lineAscii), asciiLen)) {
+                continue;
+            }
+
+            size_t decodedLen = 0;
+            const IntelHex::RowResult result = IntelHex::decodeRow(lineAscii, asciiLen, rowBytes, decodedLen);
+            if (result == IntelHex::RowResult::Skip || decodedLen == 0) {
+                continue;
+            }
+            if (result == IntelHex::RowResult::Error) {
+                closeFirmwareSource_unlocked();
+                _firmwareUpdateResult = FirmwareUpdateResult::Failed;
+                return false;
+            }
+
+            rowLen = decodedLen;
+            if (result == IntelHex::RowResult::Eof) {
+                _fwNextLineIndex = _fwLineCount;
+            }
+            break;
+        }
+    }
+
+    if (rowLen == 0) {
+        return false;
+    }
+
+    enqueueFirmwareRow(rowBytes, static_cast<uint16_t>(rowLen), false);
+    return true;
+}
+
+void HM_Abstract::onFirmwareRowCompleted()
+{
+    if (_firmwareUpdateAborted) {
+        return;
+    }
+    if (!enqueueNextFirmwareRow()) {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        if (_firmwareUpdateResult == FirmwareUpdateResult::None) {
+            _firmwareUpdateResult = FirmwareUpdateResult::Success;
+            _firmwareUpdateProgress = 100;
+            closeFirmwareSource_unlocked();
+            DevInfo()->invalidate();
+        }
+    }
+}
+
+void HM_Abstract::resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt)
+{
+    if (_firmwareUpdateAborted) {
+        return;
+    }
+    enqueueFirmwareRow(rowData, rowLen, true, attempt);
+}
+
+void HM_Abstract::enqueueFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const bool jumpQueue, const uint8_t attempt)
+{
+    constexpr uint8_t firmwareChunkSize = 16;
+    constexpr uint8_t crcSize = 2;
+    std::vector<std::shared_ptr<CommandAbstract>> packets;
+    uint8_t packetNo = 1;
+
+    const uint8_t recordType = rowLen >= 4 ? rowData[3] : 0x00;
+    const uint8_t rowAckResends = FirmwareDataCommand::rowAckResendCount(recordType);
+
+    for (size_t rowOffset = 0; rowOffset < rowLen; rowOffset += firmwareChunkSize) {
+        const uint8_t chunkLen = static_cast<uint8_t>(std::min<size_t>(firmwareChunkSize, rowLen - rowOffset));
+        const bool isLastDataChunk = (rowOffset + chunkLen >= rowLen);
+        const bool crcFitsHere = isLastDataChunk && chunkLen <= firmwareChunkSize - crcSize;
+        const bool useFinalRowMarker = isLastDataChunk && crcFitsHere;
+        const uint8_t packetId = useFinalRowMarker
+            ? (0x80 + packetNo)
+            : (0x0 + packetNo);
+
+        auto dataCmd = _radio->prepareCommand<FirmwareDataCommand>(this);
+        dataCmd->setPacketNumber(packetId);
+        dataCmd->setPayload(rowData + rowOffset, chunkLen);
+
+        dataCmd->setRowAttempt(attempt);
+        if (crcFitsHere) {
+            dataCmd->appendRowCrc(rowData, static_cast<uint8_t>(rowLen));
+            dataCmd->setRowAckResendCount(rowAckResends);
+        }
+
+        if (jumpQueue) {
+            packets.push_back(dataCmd);
+        } else {
+            _radio->enqueCommand(dataCmd);
+        }
+
+        packetNo++;
+
+        if (isLastDataChunk && !crcFitsHere) {
+            auto crcCmd = _radio->prepareCommand<FirmwareDataCommand>(this);
+            crcCmd->setPacketNumber(static_cast<uint8_t>(0x80 + packetNo));
+            crcCmd->setPayload(rowData, 0);
+            crcCmd->appendRowCrc(rowData, static_cast<uint8_t>(rowLen));
+            crcCmd->setRowAttempt(attempt);
+            crcCmd->setRowAckResendCount(rowAckResends);
+
+            if (jumpQueue) {
+                packets.push_back(crcCmd);
+            } else {
+                _radio->enqueCommand(crcCmd);
+            }
+
+            packetNo++;
+        }
+    }
+
+    for (auto it = packets.rbegin(); it != packets.rend(); ++it) {
+        _radio->enqueCommand(*it);
+    }
+}
+
+bool HM_Abstract::getFirmwareUpdateRunning()
+{
+    if (_firmwareUpdateAborted) {
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        if (_fwLineCount > 0 && _fwNextLineIndex < _fwLineCount) {
+            return true;
+        }
+    }
+    return _radio->hasFirmwareUpdateCommands(this);
+}
+
+uint8_t HM_Abstract::getFirmwareUpdateProgress() const
+{
+    if (_firmwareUpdateAborted) {
+        return 0;
+    }
+
+    if (_firmwareUpdateResult == FirmwareUpdateResult::Success) {
+        return 100;
+    }
+
+    if (_fwLineCount == 0) {
+        return 0;
+    }
+
+    const size_t completed = std::min(_fwNextLineIndex, _fwLineCount);
+    uint8_t percent = static_cast<uint8_t>((completed * 100u) / _fwLineCount);
+    percent = static_cast<uint8_t>((percent / 5u) * 5u);
+    return std::min<uint8_t>(100, percent);
+}
+
+void HM_Abstract::abortFirmwareUpdateRequest()
+{
+    _firmwareUpdateAborted = true;
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        _firmwareUpdateResult = FirmwareUpdateResult::Aborted;
+        closeFirmwareSource_unlocked();
+    }
+}
+
+void HM_Abstract::failFirmwareUpdateRequest()
+{
+    _firmwareUpdateAborted = true;
+
+    {
+        std::lock_guard<std::mutex> lock(_pendingFirmwareRowsMutex);
+        _firmwareUpdateResult = FirmwareUpdateResult::Failed;
+        closeFirmwareSource_unlocked();
+    }
+}
+
+FirmwareUpdateResult HM_Abstract::getFirmwareUpdateResult() const
+{
+    return _firmwareUpdateResult;
+}
+
+bool HM_Abstract::buildFirmwareLineIndex_unlocked()
+{
+    size_t count = 0;
+    auto forEachLine = [&](auto&& emit) -> bool {
+        if (_fwOtaPartition != nullptr && _fwOtaLen > 0) {
+            constexpr size_t kChunkSize = 512;
+            uint8_t chunk[kChunkSize];
+            uint32_t start = 0;
+            uint32_t pos = 0;
+            while (pos < _fwOtaLen) {
+                const size_t toRead = std::min(kChunkSize, static_cast<size_t>(_fwOtaLen - pos));
+                if (esp_partition_read(_fwOtaPartition, pos, chunk, toRead) != ESP_OK) {
+                    return false;
+                }
+                for (size_t i = 0; i < toRead; ++i) {
+                    ++pos;
+                    if (chunk[i] == '\n') {
+                        if (pos - 1 > start) {
+                            emit(start, static_cast<uint16_t>(pos - 1 - start));
+                        }
+                        start = pos;
+                    }
+                }
+            }
+            if (pos > start) {
+                emit(start, static_cast<uint16_t>(pos - start));
+            }
+            return true;
+        }
+
+        if (_fwPsramAscii == nullptr || _fwPsramAsciiLen == 0) {
+            return false;
+        }
+        size_t start = 0;
+        for (size_t i = 0; i < _fwPsramAsciiLen; ++i) {
+            if (_fwPsramAscii[i] == '\n') {
+                if (i > start) {
+                    emit(static_cast<uint32_t>(start), static_cast<uint16_t>(i - start));
+                }
+                start = i + 1;
+            }
+        }
+        if (start < _fwPsramAsciiLen) {
+            emit(static_cast<uint32_t>(start), static_cast<uint16_t>(_fwPsramAsciiLen - start));
+        }
+        return true;
+    };
+
+    if (!forEachLine([&](uint32_t, uint16_t) { ++count; })) {
+        return false;
+    }
+    if (count == 0) {
+        return false;
+    }
+
+    const auto indexAlloc = [](size_t bytes) -> void* {
+        void* p = heap_caps_malloc(bytes, MALLOC_CAP_8BIT);
+        if (p == nullptr) {
+            p = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+        }
+        return p;
+    };
+
+    _fwLineOffsets = static_cast<uint32_t*>(indexAlloc(count * sizeof(uint32_t)));
+    _fwLineLengths = static_cast<uint16_t*>(indexAlloc(count * sizeof(uint16_t)));
+    if (_fwLineOffsets == nullptr || _fwLineLengths == nullptr) {
+        if (_fwLineOffsets) { heap_caps_free(_fwLineOffsets); _fwLineOffsets = nullptr; }
+        if (_fwLineLengths) { heap_caps_free(_fwLineLengths); _fwLineLengths = nullptr; }
+        return false;
+    }
+    _fwLineCount = count;
+
+    size_t i = 0;
+    forEachLine([&](uint32_t offset, uint16_t len) {
+        if (i < count) {
+            _fwLineOffsets[i] = offset;
+            _fwLineLengths[i] = len;
+            ++i;
+        }
+    });
+
+    return i == count;
+}
+
+bool HM_Abstract::readFirmwareLineAscii_unlocked(size_t index, char* out, size_t maxLen, size_t& outLen)
+{
+    outLen = 0;
+    if (index >= _fwLineCount || _fwLineOffsets == nullptr || _fwLineLengths == nullptr) {
+        return false;
+    }
+    const uint16_t len = _fwLineLengths[index];
+    if (len == 0 || len > maxLen) {
+        return false;
+    }
+
+    if (_fwOtaPartition != nullptr) {
+        const uint32_t off = _fwLineOffsets[index];
+        if (static_cast<size_t>(off) + len > _fwOtaLen) {
+            return false;
+        }
+        if (esp_partition_read(_fwOtaPartition, off, out, len) != ESP_OK) {
+            return false;
+        }
+    } else if (_fwPsramAscii != nullptr) {
+        const size_t off = _fwLineOffsets[index];
+        if (off + len > _fwPsramAsciiLen) {
+            return false;
+        }
+        memcpy(out, _fwPsramAscii + off, len);
+    } else {
+        return false;
+    }
+
+    outLen = len;
+    return true;
+}
+
+void HM_Abstract::closeFirmwareSource_unlocked()
+{
+    if (_fwLineOffsets != nullptr) {
+        heap_caps_free(_fwLineOffsets);
+        _fwLineOffsets = nullptr;
+    }
+    if (_fwLineLengths != nullptr) {
+        heap_caps_free(_fwLineLengths);
+        _fwLineLengths = nullptr;
+    }
+    _fwLineCount = 0;
+    _fwNextLineIndex = 0;
+    _fwPsramAscii = nullptr;
+    _fwPsramAsciiLen = 0;
+    _fwOtaPartition = nullptr;
+    _fwOtaLen = 0;
 }
 
 bool HM_Abstract::supportsPowerDistributionLogic()

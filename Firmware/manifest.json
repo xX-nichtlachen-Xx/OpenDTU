@@ -1,0 +1,704 @@
+{
+  "schema": 1,
+  "generated": "2026-09-29T15:22:50+00:00",
+  "repo": "xX-nichtlachen-Xx/OpenDTU",
+  "ref": "FirmwareUpdate_HM_IV",
+  "commit": "5c9de6180086762284e9790f6c755531d27b195c",
+  "base_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/",
+  "changelog_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/Hoymiles_Inverter_Firmware_Changelog.txt",
+  "mapping_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/Inverter_Serial_to_File_Mapping.txt",
+  "max_size": 819200,
+  "files": [
+    {
+      "path": "HF/HF_800_WB_V01.10.03_Build2025.11.21-13.58.hex",
+      "name": "HF_800_WB_V01.10.03_Build2025.11.21-13.58",
+      "family": "HF",
+      "folder": "HF",
+      "size": 323604,
+      "sha256": "7bad688eb4653055c72b944ab7eb449c59462764dc69a3210ff44c6d524f22fc",
+      "rows": 4265,
+      "identity": "11110002",
+      "version_code": 11003,
+      "version": "1.10.3",
+      "serial_prefixes": [],
+      "date": "2025-11-21T13:58:00"
+    },
+    {
+      "path": "HM/HM_1T_1_0_14.hex",
+      "name": "HM_1T_1_0_14",
+      "family": "HM",
+      "folder": "HM",
+      "size": 240224,
+      "sha256": "a7ad4044a9088511d91583902738e2bbb4ef45cdb7a470e9188153b00a9d6e46",
+      "rows": 3169,
+      "identity": "10100000",
+      "version_code": 10014,
+      "version": "1.0.14",
+      "serial_prefixes": [
+        "1121"
+      ],
+      "date": "2021-12-09T12:46:00"
+    },
+    {
+      "path": "HM/HM_1T_1_0_17.hex",
+      "name": "HM_1T_1_0_17",
+      "family": "HM",
+      "folder": "HM",
+      "size": 246836,
+      "sha256": "85534437bc63ebcbe1e59c6fa95662fe6157377be8cb8db092449fecc38f9a8b",
+      "rows": 3256,
+      "identity": "10100000",
+      "version_code": 10017,
+      "version": "1.0.17",
+      "serial_prefixes": [
+        "1121"
+      ],
+      "date": "2023-06-30T16:49:00"
+    },
+    {
+      "path": "HM/HM_1T_1_1_0.hex",
+      "name": "HM_1T_1_1_0",
+      "family": "HM",
+      "folder": "HM",
+      "size": 249472,
+      "sha256": "6dd7e36eec2932a999768e99f345adc2db00281dd81955a9df5135d4b3b31af4",
+      "rows": 3291,
+      "identity": "10100000",
+      "version_code": 10100,
+      "version": "1.1.0",
+      "serial_prefixes": [
+        "1121"
+      ],
+      "date": "2024-01-15T20:46:00"
+    },
+    {
+      "path": "HM/HM_1T_1_5_0.hex",
+      "name": "HM_1T_1_5_0",
+      "family": "HM",
+      "folder": "HM",
+      "size": 262608,
+      "sha256": "c5440f50db0b420aaf2272276c0029374cfbb3583014a1422547eb557f567c5c",
+      "rows": 3463,
+      "identity": "10100000",
+      "version_code": 10500,
+      "version": "1.5.0",
+      "serial_prefixes": [
+        "1121"
+      ],
+      "date": "2026-08-12T16:42:00"
+    },
+    {
+      "path": "HM/HM_2T_1_0_16.hex",
+      "name": "HM_2T_1_0_16",
+      "family": "HM",
+      "folder": "HM",
+      "size": 243588,
+      "sha256": "5599d0bd7dead4b366270c0e787bef470dcc06c1d85d6d05d2e8deeb11448cd2",
+      "rows": 3213,
+      "identity": "10110000",
+      "version_code": 10016,
+      "version": "1.0.16",
+      "serial_prefixes": [
+        "1141"
+      ],
+      "date": "2022-11-10T16:11:00"
+    },
+    {
+      "path": "HM/HM_2T_1_1_2.hex",
+      "name": "HM_2T_1_1_2",
+      "family": "HM",
+      "folder": "HM",
+      "size": 250172,
+      "sha256": "9c19803bbd1b66d4e4fca8b09822bc78245a0ca37c173bcf0fc3a3b3e3eb063d",
+      "rows": 3300,
+      "identity": "10110000",
+      "version_code": 10102,
+      "version": "1.1.2",
+      "serial_prefixes": [
+        "1141"
+      ],
+      "date": "2024-01-09T19:37:00"
+    },
+    {
+      "path": "HM/HM_2T_1_5_1.hex",
+      "name": "HM_2T_1_5_1",
+      "family": "HM",
+      "folder": "HM",
+      "size": 264692,
+      "sha256": "7bde2fe87c71344bb3960f7380b013414710e05f830e9f43bfc5f9c49b815b10",
+      "rows": 3490,
+      "identity": "10110000",
+      "version_code": 10501,
+      "version": "1.5.1",
+      "serial_prefixes": [
+        "1141"
+      ],
+      "date": "2026-08-07T15:27:00"
+    },
+    {
+      "path": "HM/HM_4T_1_0_18.hex",
+      "name": "HM_4T_1_0_18",
+      "family": "HM",
+      "folder": "HM",
+      "size": 253976,
+      "sha256": "83d17d6c754164baa2745d3cc72f1469b7700d85019c19e4b90e73220d0818cd",
+      "rows": 3350,
+      "identity": "10120000",
+      "version_code": 10018,
+      "version": "1.0.18",
+      "serial_prefixes": [
+        "1161"
+      ],
+      "date": "2021-12-24T18:21:00"
+    },
+    {
+      "path": "HM/HM_4T_1_1_3.hex",
+      "name": "HM_4T_1_1_3",
+      "family": "HM",
+      "folder": "HM",
+      "size": 261864,
+      "sha256": "932490da5f0bdaaafa67735101194496a9a20cd75790321143bb76464fe45f41",
+      "rows": 3454,
+      "identity": "10120000",
+      "version_code": 10103,
+      "version": "1.1.3",
+      "serial_prefixes": [
+        "1161"
+      ],
+      "date": "2024-02-04T13:15:00"
+    },
+    {
+      "path": "HM/HM_4T_1_5_0.hex",
+      "name": "HM_4T_1_5_0",
+      "family": "HM",
+      "folder": "HM",
+      "size": 268536,
+      "sha256": "9dae2e0035fdbdd323f52f5bc0a3628afefc1575402cd9afef4c33eb6efa7f1c",
+      "rows": 3541,
+      "identity": "10120000",
+      "version_code": 10500,
+      "version": "1.5.0",
+      "serial_prefixes": [
+        "1161"
+      ],
+      "date": "2026-08-10T20:04:00"
+    },
+    {
+      "path": "HMS/HMS_1T_B_2_0_0.hex",
+      "name": "HMS_1T_B_2_0_0",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 252220,
+      "sha256": "c8f5ba6bb1fcb0dc05daeaf3afaa05f4c3078c45c37f015ea3ccb1f3fc1c8333",
+      "rows": 3326,
+      "identity": "10100001",
+      "version_code": 20000,
+      "version": "2.0.0",
+      "serial_prefixes": [
+        "1125",
+        "1400"
+      ],
+      "date": "2025-09-04T21:07:00"
+    },
+    {
+      "path": "HMS/HMS_1T_MI_2_0_2.hex",
+      "name": "HMS_1T_MI_2_0_2",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 256188,
+      "sha256": "12e91eccf0defe6ed8143c15f30f07fb4cb0995b3a2dcba789610021a59ed57c",
+      "rows": 3378,
+      "identity": "10100000",
+      "version_code": 20002,
+      "version": "2.0.2",
+      "serial_prefixes": [
+        "1124"
+      ],
+      "date": "2025-12-02T20:37:00"
+    },
+    {
+      "path": "HMS/HMS_2T_1_0_8.hex",
+      "name": "HMS_2T_1_0_8",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 231844,
+      "sha256": "f88d4567a03803489bd8b46299162baa796b6ef43bd39e0541af8eb8b1b6cd75",
+      "rows": 3057,
+      "identity": "10111001",
+      "version_code": 10008,
+      "version": "1.0.8",
+      "serial_prefixes": [
+        "1143",
+        "1144",
+        "1410"
+      ],
+      "date": "2023-05-04T14:56:00"
+    },
+    {
+      "path": "HMS/HMS_2T_1_3_9.hex",
+      "name": "HMS_2T_1_3_9",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 252080,
+      "sha256": "04ffd701ac7145d954b19ab473796712d808ca85944286a6c86240d6bfce4b46",
+      "rows": 3324,
+      "identity": "10111001",
+      "version_code": 10309,
+      "version": "1.3.9",
+      "serial_prefixes": [
+        "1143",
+        "1144",
+        "1410"
+      ],
+      "date": "2024-10-17T20:26:00"
+    },
+    {
+      "path": "HMS/HMS_4T_1_0_27.hex",
+      "name": "HMS_4T_1_0_27",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 252292,
+      "sha256": "7b12cd948e3ed69ce1f7e6358f1045bd99056cfd938c4ab4f3ec84fae9c68aeb",
+      "rows": 3326,
+      "identity": "10121000",
+      "version_code": 10027,
+      "version": "1.0.27",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2023-06-05T10:24:00"
+    },
+    {
+      "path": "HMS/HMS_4T_1_1_12.hex",
+      "name": "HMS_4T_1_1_12",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 243380,
+      "sha256": "a76ee5cfb62165e1210e149ed4332e3855b6f2a274e54db8d953fe5a98e8f652",
+      "rows": 3209,
+      "identity": "10121000",
+      "version_code": 10112,
+      "version": "1.1.12",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2024-09-02T20:57:00"
+    },
+    {
+      "path": "HMS/HMS_4T_2_0_4.hex",
+      "name": "HMS_4T_2_0_4",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 252728,
+      "sha256": "04998ea0b84e40a208add490747e5ab8d4a2b5e89fd7d19c5ab25c0261b0d3ce",
+      "rows": 3332,
+      "identity": "10121000",
+      "version_code": 20004,
+      "version": "2.0.4",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2024-12-19T17:49:00"
+    },
+    {
+      "path": "HMS/HMS_4T_Thailand_1_1_18.hex",
+      "name": "HMS_4T_Thailand_1_1_18",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 247288,
+      "sha256": "2c3d631e9b0d05004310374c9981fbb1b850dc9bcb4fc6326e440c089abf67c4",
+      "rows": 3261,
+      "identity": "10121000",
+      "version_code": 10118,
+      "version": "1.1.18",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2024-12-13T18:14:00"
+    },
+    {
+      "path": "HMS/HMS_4T_Thailand_1_1_29.hex",
+      "name": "HMS_4T_Thailand_1_1_29",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 252840,
+      "sha256": "1c0d2ff3f7bea6cd8766bd96c0aa51f7220bb7b7a103e1a209a2733223260ccb",
+      "rows": 3334,
+      "identity": "10121000",
+      "version_code": 10129,
+      "version": "1.1.29",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2026-08-25T11:04:00"
+    },
+    {
+      "path": "HMS/HMS_4T_Thailand_1_1_90.hex",
+      "name": "HMS_4T_Thailand_1_1_90",
+      "family": "HMS",
+      "folder": "HMS",
+      "size": 242348,
+      "sha256": "c0160bf303e60a339ee103860f7480bfe2a3de435897d8171000fabb3abeb517",
+      "rows": 3196,
+      "identity": "10121000",
+      "version_code": 10190,
+      "version": "1.1.90",
+      "serial_prefixes": [
+        "1164"
+      ],
+      "date": "2026-08-20T17:59:00"
+    },
+    {
+      "path": "HMT/HMT_4T_1_1_5.hex",
+      "name": "HMT_4T_1_1_5",
+      "family": "HMT",
+      "folder": "HMT",
+      "size": 334012,
+      "sha256": "7fa75280ee3fc4897d3af2b8e46d3c943213efe9695b4036011122e60bee875b",
+      "rows": 4404,
+      "identity": "10350000",
+      "version_code": 10201,
+      "version": "1.2.1",
+      "serial_prefixes": [
+        "1361"
+      ],
+      "date": "2025-08-27T19:18:00",
+      "aliases": [
+        "HMT/Exotic/HMT_4in1_B_V01.02.01_Build2025.08.27-19.18.hex"
+      ]
+    },
+    {
+      "path": "HMT/HMT_6T_1_2_27.hex",
+      "name": "HMT_6T_1_2_27",
+      "family": "HMT",
+      "folder": "HMT",
+      "size": 346596,
+      "sha256": "4f521d8181f76852d2c785b8bdd0e7e3f98fb7e5692c460c54b847291e1ac265",
+      "rows": 4569,
+      "identity": "10330000",
+      "version_code": 10227,
+      "version": "1.2.27",
+      "serial_prefixes": [
+        "1382"
+      ],
+      "date": "2024-06-20T14:52:00"
+    },
+    {
+      "path": "MI/MI-1000__0_2_42__2019_03.hex",
+      "name": "MI-1000__0_2_42__2019_03",
+      "family": "MI",
+      "folder": "MI",
+      "size": 179388,
+      "sha256": "9500fe7c4196bd1df5777ee49bdd4c90b518c655232e640f8ee3ac60d5b4d116",
+      "rows": 2368,
+      "identity": "00210001",
+      "version_code": 242,
+      "version": "0.2.42",
+      "serial_prefixes": [],
+      "date": "2019-03-28T11:26:00"
+    },
+    {
+      "path": "MIS/MIS_3680_W_DSP_A_V1.00.22_Build2026.07.20-15.56.hex",
+      "name": "MIS_3680_W_DSP_A_V1.00.22_Build2026.07.20-15.56",
+      "family": "MIS",
+      "folder": "MIS",
+      "size": 509408,
+      "sha256": "c13fdf2f17321c2f098cb6f54229df22ef745d478bfb8c3c97f7a847cee02d9f",
+      "rows": 6710,
+      "identity": "11180000",
+      "version_code": 10022,
+      "version": "1.0.22",
+      "serial_prefixes": [],
+      "date": "2026-07-20T15:56:00"
+    },
+    {
+      "path": "MIT/MIT-5000-8E-PWR__2_0_0__2024_11.hex",
+      "name": "MIT-5000-8E-PWR__2_0_0__2024_11",
+      "family": "MIT",
+      "folder": "MIT",
+      "size": 453420,
+      "sha256": "35f4f734672297662563622381f61e2536a365a3397348ae49f8b90af04da81c",
+      "rows": 5974,
+      "identity": "12160000",
+      "version_code": 20000,
+      "version": "2.0.0",
+      "serial_prefixes": [],
+      "date": "2024-11-25T14:12:00"
+    },
+    {
+      "path": "MIT/MIT-5000-8E-PWR_B_V1.04.34_Build2026.04.20-17.28.hex",
+      "name": "MIT-5000-8E-PWR_B_V1.04.34_Build2026.04.20-17.28",
+      "family": "MIT",
+      "folder": "MIT",
+      "size": 488268,
+      "sha256": "d7f4759c83276364a0a87a8375571d2bff4c01175efc770deba4f0df63ab2d8c",
+      "rows": 6432,
+      "identity": "12160000",
+      "version_code": 10434,
+      "version": "1.4.34",
+      "serial_prefixes": [],
+      "date": "2026-04-20T17:28:00"
+    },
+    {
+      "path": "MIT/MIT-5000-8E-PWR_V01.04.00_Build2025.07.01-17.20.hex",
+      "name": "MIT-5000-8E-PWR_V01.04.00_Build2025.07.01-17.20",
+      "family": "MIT",
+      "folder": "MIT",
+      "size": 488272,
+      "sha256": "6cb76bcb29d0ea2ed256a08efbef942a13bfbad1d611b935cea15eac11b7beb7",
+      "rows": 6432,
+      "identity": "12160000",
+      "version_code": 10400,
+      "version": "1.4.0",
+      "serial_prefixes": [],
+      "date": "2025-07-01T17:20:00"
+    },
+    {
+      "path": "MIT/MIT-5000-8E-SAF__2_0_0__2024_11.hex",
+      "name": "MIT-5000-8E-SAF__2_0_0__2024_11",
+      "family": "MIT",
+      "folder": "MIT",
+      "size": 91348,
+      "sha256": "cd63aba2406a88d23cd50f46e85efa1002a44c17ca92d24c578e70d7a1b0e852",
+      "rows": 1208,
+      "identity": "12160100",
+      "version_code": 20000,
+      "version": "2.0.0",
+      "serial_prefixes": [],
+      "date": "2024-11-25T14:18:00"
+    },
+    {
+      "path": "MIT/MIT-5000-8E-SAF_V01.04.00_Build2025.07.01-17.22.hex",
+      "name": "MIT-5000-8E-SAF_V01.04.00_Build2025.07.01-17.22",
+      "family": "MIT",
+      "folder": "MIT",
+      "size": 93576,
+      "sha256": "7e633b3c5ec972cbaf7d3c83b6f3d30253bb2c5d7724c8a32d92a5d9620b99e7",
+      "rows": 1238,
+      "identity": "12160100",
+      "version_code": 10400,
+      "version": "1.4.0",
+      "serial_prefixes": [],
+      "date": "2025-07-01T17:22:00"
+    },
+    {
+      "path": "Unknown/2T__1_3_9__2024_12.hex",
+      "name": "2T__1_3_9__2024_12",
+      "family": "Unknown",
+      "folder": "Unknown",
+      "size": 459908,
+      "sha256": "518d7511f174f5c5f2c4b3fd440ae8fbf23a32c617b4e1af7a7da3b3b163a83f",
+      "rows": 6060,
+      "identity": "51110001",
+      "version_code": 10391,
+      "version": "1.3.91",
+      "serial_prefixes": [],
+      "date": "2024-12-09T11:46:00"
+    },
+    {
+      "path": "HMS/Exotic/HME1_4T_MI__1_0_9__2022_01.hex",
+      "name": "HME1_4T_MI__1_0_9__2022_01",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 259776,
+      "sha256": "a7b36bf0c2aeda7b3940cfac12f680f91a5a2e6a461e4682a27128778fa5a34e",
+      "rows": 3426,
+      "identity": "10420000",
+      "version_code": 10009,
+      "version": "1.0.9",
+      "serial_prefixes": [
+        "1162"
+      ],
+      "date": "2022-01-10T17:16:00",
+      "aliases": [
+        "HMT/Exotic/HMT_4T_MI_1_0_9__2022_01.hex"
+      ]
+    },
+    {
+      "path": "HMS/Exotic/HMS_1T__WB_B__0_0_5__2024_10.hex",
+      "name": "HMS_1T__WB_B__0_0_5__2024_10",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 233628,
+      "sha256": "3970200bc1d6d6d582803abcfda9c9b9c5ed6c2a98d73268ce9fe2cec749665c",
+      "rows": 3080,
+      "identity": "10100003",
+      "version_code": 5,
+      "version": "0.0.5",
+      "serial_prefixes": [],
+      "date": "2024-10-14T19:39:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_1T__WB_B__1_1_0__2024_11.hex",
+      "name": "HMS_1T__WB_B__1_1_0__2024_11",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 235244,
+      "sha256": "66ed1f047c9b983f6aa5916fa7b4ed511fad1c2c090f1587dbdd361d28e5444a",
+      "rows": 3102,
+      "identity": "10100003",
+      "version_code": 10100,
+      "version": "1.1.0",
+      "serial_prefixes": [],
+      "date": "2024-11-21T11:25:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_1T__WB_B__1_3_0__2025_09.hex",
+      "name": "HMS_1T__WB_B__1_3_0__2025_09",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 238864,
+      "sha256": "2c7599398c4cf371b92a574660db59412ff53ccf99cb41f47a6e1b0c88254b02",
+      "rows": 3150,
+      "identity": "10100003",
+      "version_code": 10300,
+      "version": "1.3.0",
+      "serial_prefixes": [],
+      "date": "2025-09-09T14:37:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_2T__WB_B__1_3_1__2025_09.hex",
+      "name": "HMS_2T__WB_B__1_3_1__2025_09",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 252724,
+      "sha256": "ec587643403d6f2c8354fe967c4fad329e4c217f8e5a451a25ee09c4a182099d",
+      "rows": 3332,
+      "identity": "10111003",
+      "version_code": 10301,
+      "version": "1.3.1",
+      "serial_prefixes": [],
+      "date": "2025-09-22T15:03:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_4T__2000B_T__1_0_9__2023_01.hex",
+      "name": "HMS_4T__2000B_T__1_0_9__2023_01",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 238540,
+      "sha256": "730e08ca83bfecad577c5a493671466b71d7265a782c47f67b315a965308ae10",
+      "rows": 3146,
+      "identity": "10122000",
+      "version_code": 10009,
+      "version": "1.0.9",
+      "serial_prefixes": [
+        "1165"
+      ],
+      "date": "2023-01-30T13:20:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_4T__2000C_B__1_3_0__2024_11.hex",
+      "name": "HMS_4T__2000C_B__1_3_0__2024_11",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 252844,
+      "sha256": "6132e5ce90223edd2a40e827a8ed3231c97c7c3bc26c0bc4d920599589ddc0df",
+      "rows": 3333,
+      "identity": "10121101",
+      "version_code": 10300,
+      "version": "1.3.0",
+      "serial_prefixes": [
+        "1166",
+        "1421"
+      ],
+      "date": "2024-11-08T19:25:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_4T__2000C_B__2_0_5__2025_11.hex",
+      "name": "HMS_4T__2000C_B__2_0_5__2025_11",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 252492,
+      "sha256": "73f86417924a935188fe1d9351aeb27624431cc908e075f15f906c2e3a0ef56e",
+      "rows": 3329,
+      "identity": "10121101",
+      "version_code": 20005,
+      "version": "2.0.5",
+      "serial_prefixes": [
+        "1166",
+        "1421"
+      ],
+      "date": "2025-11-11T19:20:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_4T__WB_B__1_1_0__2024_12.hex",
+      "name": "HMS_4T__WB_B__1_1_0__2024_12",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 297360,
+      "sha256": "9c0f4a422cbfcd187c4baec11e2c2a73d8634ac38a85af5a0e5c7de06b0ca967",
+      "rows": 3922,
+      "identity": "10123001",
+      "version_code": 10100,
+      "version": "1.1.0",
+      "serial_prefixes": [
+        "1620"
+      ],
+      "date": "2024-12-02T15:40:00"
+    },
+    {
+      "path": "HMS/Exotic/HMS_4T__WB_B__1_3_1__2025_09.hex",
+      "name": "HMS_4T__WB_B__1_3_1__2025_09",
+      "family": "HMS",
+      "folder": "HMS/Exotic",
+      "size": 300984,
+      "sha256": "72c8576c17a996b8c0f204ef16994a9ae8b56e59a1d094cdc244e326e65a4fcf",
+      "rows": 3969,
+      "identity": "10123001",
+      "version_code": 10301,
+      "version": "1.3.1",
+      "serial_prefixes": [
+        "1620"
+      ],
+      "date": "2025-09-15T11:29:00"
+    },
+    {
+      "path": "HMS/US/HMS_1T_US_1_1_0__2026_06.hex",
+      "name": "HMS_1T_US_1_1_0__2026_06",
+      "family": "HMS",
+      "folder": "HMS/US",
+      "size": 230592,
+      "sha256": "1faee9b4aec0c5b0b2ff0c6c3502218238309151d9962184c375d6607563cb7c",
+      "rows": 3041,
+      "identity": "10100002",
+      "version_code": 10100,
+      "version": "1.1.0",
+      "serial_prefixes": [
+        "1126"
+      ],
+      "date": "2026-06-26T10:39:00"
+    },
+    {
+      "path": "HMS/US/HMS_2T_US_1_1_4__2026_06.hex",
+      "name": "HMS_2T_US_1_1_4__2026_06",
+      "family": "HMS",
+      "folder": "HMS/US",
+      "size": 239688,
+      "sha256": "980ec6c7234fb75aeed5609f6d08d5ac7febd10d2c352186e449c6595723f5c2",
+      "rows": 3161,
+      "identity": "10111002",
+      "version_code": 10104,
+      "version": "1.1.4",
+      "serial_prefixes": [
+        "1146"
+      ],
+      "date": "2026-06-26T14:56:00"
+    },
+    {
+      "path": "HMT/Exotic/HMT_4in1_NA_R_V01.00.06_Build2023.10.13-13.40(1).hex",
+      "name": "HMT_4in1_NA_R_V01.00.06_Build2023.10.13-13.40(1)",
+      "family": "HMT",
+      "folder": "HMT/Exotic",
+      "size": 350304,
+      "sha256": "2e646cab0b065c9e50640851575c2eb9018aea1b9ee056359b94ec936d0b2a27",
+      "rows": 4618,
+      "identity": "10360000",
+      "version_code": 10006,
+      "version": "1.0.6",
+      "serial_prefixes": [
+        "1362"
+      ],
+      "date": "2023-10-13T13:40:00"
+    }
+  ]
+}

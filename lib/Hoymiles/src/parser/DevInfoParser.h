@@ -32,6 +32,8 @@ public:
 
     bool containsValidData() const;
 
+    void invalidate();
+
 private:
     static time_t timegm(const struct tm* tm);
     uint8_t getDevIdx() const;

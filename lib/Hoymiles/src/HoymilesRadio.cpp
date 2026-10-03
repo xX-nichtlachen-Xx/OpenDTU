@@ -55,14 +55,55 @@ void HoymilesRadio::sendLastPacketAgain()
     sendEsbPacket(*cmd);
 }
 
+bool HoymilesRadio::rxPeriodFinished()
+{
+    if (_rxTimeout.occured()) {
+        return true;
+    }
+
+    if (isQueueEmpty()) {
+        return false;
+    }
+    CommandAbstract* cmd = _commandQueue.front().get();
+    if (!cmd->isFirmwareDataCommand() || !cmd->expectsResponse()) {
+        return false;
+    }
+    std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterBySerial(cmd->getTargetAddress());
+    if (nullptr == inv || !inv->isResponseComplete()) {
+        return false;
+    }
+
+    ESP_LOGD(TAG, "RX Period End (early, firmware row ack received)");
+    _rxTimeout.set(0);
+    return true;
+}
+
 void HoymilesRadio::handleReceivedPackage()
 {
-    if (_busyFlag && _rxTimeout.occured()) {
+    if (_busyFlag && rxPeriodFinished()) {
         ESP_LOGI(TAG, "RX Period End");
         std::shared_ptr<InverterAbstract> inv = Hoymiles.getInverterBySerial(_commandQueue.front().get()->getTargetAddress());
 
         if (nullptr != inv) {
             CommandAbstract* cmd = _commandQueue.front().get();
+
+            if (_txFailed) {
+                _txFailed = false;
+                if (cmd->getSendCount() <= cmd->getMaxResendCount()) {
+                    ESP_LOGW(TAG, "TX not acknowledged, resend request (attempt %" PRIu8 ")", cmd->getSendCount() + 1);
+                    sendLastPacketAgain();
+                } else {
+                    ESP_LOGW(TAG, "TX not acknowledged, resend count exceeded");
+                    if (inv->RadioStats.TxRequestData > 0) {
+                        inv->RadioStats.RxFailNoAnswer++;
+                    }
+                    cmd->gotTimeout();
+                    _commandQueue.pop();
+                    _busyFlag = false;
+                }
+                return;
+            }
+
             uint8_t verifyResult = inv->verifyAllFragments(*cmd);
             if (verifyResult == FRAGMENT_ALL_MISSING_RESEND) {
                 ESP_LOGW(TAG, "Nothing received, resend whole request");
@@ -157,6 +198,16 @@ void HoymilesRadio::removeCommands(InverterAbstract* inv)
 uint8_t HoymilesRadio::countSimilarCommands(std::shared_ptr<CommandAbstract> cmd)
 {
     return _commandQueue.countSimilarCommands(cmd);
+}
+
+bool HoymilesRadio::hasFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    return _commandQueue.hasFirmwareUpdateCommands(inv);
+}
+
+void HoymilesRadio::removeFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    _commandQueue.removeFirmwareUpdateCommands(inv);
 }
 
 bool HoymilesRadio::isIdle() const

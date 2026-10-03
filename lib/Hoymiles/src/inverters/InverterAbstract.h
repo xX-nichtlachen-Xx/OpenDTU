@@ -12,7 +12,9 @@
 #include "types.h"
 #include <Arduino.h>
 #include <cstdint>
+#include <esp_partition.h>
 #include <list>
+#include <vector>
 
 #define MAX_NAME_LENGTH 32
 
@@ -27,6 +29,13 @@ enum {
 #define MAX_RF_FRAGMENT_COUNT 13
 
 class CommandAbstract;
+
+enum class FirmwareUpdateResult {
+    None,
+    Success,
+    Failed,
+    Aborted
+};
 
 class InverterAbstract {
 public:
@@ -67,6 +76,8 @@ public:
     void addRxFragment(const uint8_t fragment[], const uint8_t len, const int8_t rssi);
     uint8_t verifyAllFragments(CommandAbstract& cmd);
 
+    bool isResponseComplete() const;
+
     void performDailyTask();
 
     void resetRadioStats();
@@ -93,7 +104,8 @@ public:
 
     virtual bool sendStatsRequest() = 0;
     virtual bool sendAlarmLogRequest(const bool force = false) = 0;
-    virtual bool sendDevInfoRequest() = 0;
+    // force: enqueue even if polling is disabled (used by the manual refresh in the web UI)
+    virtual bool sendDevInfoRequest(const bool force = false) = 0;
     virtual bool sendSystemConfigParaRequest() = 0;
     virtual bool sendActivePowerControlRequest(float limit, const PowerLimitControlType type) = 0;
     virtual bool resendActivePowerControlRequest() = 0;
@@ -102,6 +114,17 @@ public:
     virtual bool resendPowerControlRequest() = 0;
     virtual bool sendChangeChannelRequest();
     virtual bool sendGridOnProFileParaRequest() = 0;
+    virtual bool sendFirmwareUpdateRequest(const uint8_t* rawAscii,
+                                           const size_t rawAsciiLen,
+                                           const esp_partition_t* otaPartition = nullptr,
+                                           const size_t otaPartitionLen = 0) = 0;
+    virtual bool getFirmwareUpdateRunning();
+    virtual uint8_t getFirmwareUpdateProgress() const;
+    virtual void abortFirmwareUpdateRequest();
+    virtual void failFirmwareUpdateRequest();
+    virtual void resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt);
+    virtual void onFirmwareRowCompleted();
+    virtual FirmwareUpdateResult getFirmwareUpdateResult() const;
 
     // This feature will limit the AC output instead of limiting the DC inputs.
     virtual bool supportsPowerDistributionLogic() = 0;
