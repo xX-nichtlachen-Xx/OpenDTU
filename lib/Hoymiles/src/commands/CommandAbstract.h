@@ -59,9 +59,14 @@ public:
     // Sets the amount how often a missing fragment is re-requested if it was not available
     virtual uint8_t getMaxRetransmitCount() const;
 
+    virtual bool expectsResponse() const { return true; }
+
     // Returns whether multiple instances of this command are allowed in the command queue.
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
     virtual bool areSameParameter(CommandAbstract* other);
+
+    // Type tag for queue-scoped filtering without RTTI (build uses -fno-rtti).
+    virtual bool isGridProfileWriteCommand() const { return false; }
 
 protected:
     uint8_t _payload[RF_LEN];
