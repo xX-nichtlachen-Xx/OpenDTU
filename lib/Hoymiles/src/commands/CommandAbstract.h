@@ -63,8 +63,17 @@ public:
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
     virtual bool areSameParameter(CommandAbstract* other);
 
+    virtual bool isEncryptable() const { return false; }
+
+    virtual bool usesConfigChannel() const { return false; }
+
+    virtual uint32_t encryptionTimestamp() const;
+
 protected:
+    uint8_t wirePayloadSize() const;
+
     uint8_t _payload[RF_LEN];
+    uint8_t _sendPayload[RF_LEN]; // wire frame (optionally encrypted) built on demand
     uint8_t _payload_size;
     uint32_t _timeout;
     uint8_t _sendCount;

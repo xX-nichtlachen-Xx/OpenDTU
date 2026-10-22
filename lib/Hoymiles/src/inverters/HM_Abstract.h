@@ -23,6 +23,8 @@ protected:
     PowerLimitControlType _activePowerControlType = PowerLimitControlType::AbsolutNonPersistent;
 
 private:
+    void enqueueSeedIfNeeded();
+
     uint8_t _lastAlarmLogCnt = 0;
     uint8_t _powerState = 1;
 };

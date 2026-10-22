@@ -63,6 +63,7 @@ void HoymilesRadio::handleReceivedPackage()
 
         if (nullptr != inv) {
             CommandAbstract* cmd = _commandQueue.front().get();
+            const bool cmdEncryptable = cmd->isEncryptable();
             uint8_t verifyResult = inv->verifyAllFragments(*cmd);
             if (verifyResult == FRAGMENT_ALL_MISSING_RESEND) {
                 ESP_LOGW(TAG, "Nothing received, resend whole request");
@@ -74,6 +75,9 @@ void HoymilesRadio::handleReceivedPackage()
                 if (inv->RadioStats.TxRequestData > 0) {
                     inv->RadioStats.RxFailNoAnswer++;
                 }
+                if (cmdEncryptable) {
+                    inv->handleEncryptionResult(false);
+                }
 
                 _commandQueue.pop();
                 _busyFlag = false;
@@ -84,6 +88,9 @@ void HoymilesRadio::handleReceivedPackage()
                 if (inv->RadioStats.TxRequestData > 0) {
                     inv->RadioStats.RxFailPartialAnswer++;
                 }
+                if (cmdEncryptable) {
+                    inv->handleEncryptionResult(false);
+                }
 
                 _commandQueue.pop();
                 _busyFlag = false;
@@ -93,6 +100,9 @@ void HoymilesRadio::handleReceivedPackage()
                 // Statistics: Count RX Fail Corrupt Data
                 if (inv->RadioStats.TxRequestData > 0) {
                     inv->RadioStats.RxFailCorruptData++;
+                }
+                if (cmdEncryptable) {
+                    inv->handleEncryptionResult(false);
                 }
 
                 _commandQueue.pop();
@@ -112,6 +122,9 @@ void HoymilesRadio::handleReceivedPackage()
                 // Statistics: Count RX Success
                 if (inv->RadioStats.TxRequestData > 0) {
                     inv->RadioStats.RxSuccess++;
+                }
+                if (cmdEncryptable) {
+                    inv->handleEncryptionResult(true);
                 }
 
                 _commandQueue.pop();

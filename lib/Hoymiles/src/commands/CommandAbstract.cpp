@@ -35,6 +35,7 @@ Source Address: 80 12 23 04
 CommandAbstract::CommandAbstract(InverterAbstract* inv, const uint64_t router_address)
 {
     memset(_payload, 0, RF_LEN);
+    memset(_sendPayload, 0, RF_LEN);
     _payload_size = 0;
 
     _inv = inv;
@@ -45,10 +46,46 @@ CommandAbstract::CommandAbstract(InverterAbstract* inv, const uint64_t router_ad
     setTimeout(0);
 }
 
+uint8_t CommandAbstract::wirePayloadSize() const
+{
+    if (isEncryptable() && _inv != nullptr && !usesConfigChannel()
+        && _inv->isEncryptionActive() && _payload_size < 26) {
+        return 26;
+    }
+    return _payload_size;
+}
+
+uint32_t CommandAbstract::encryptionTimestamp() const
+{
+    // Time-stamped data commands carry the DTU unix timestamp at _payload[12..15].
+    return (static_cast<uint32_t>(_payload[12]) << 24)
+        | (static_cast<uint32_t>(_payload[13]) << 16)
+        | (static_cast<uint32_t>(_payload[14]) << 8)
+        | (static_cast<uint32_t>(_payload[15]));
+}
+
 const uint8_t* CommandAbstract::getDataPayload()
 {
-    _payload[_payload_size] = crc8(_payload, _payload_size);
-    return _payload;
+    const uint8_t size = wirePayloadSize();
+
+    memcpy(_sendPayload, _payload, _payload_size);
+    if (size > _payload_size) {
+        const uint8_t pad = static_cast<uint8_t>(size - _payload_size);
+        memset(&_sendPayload[_payload_size], pad, pad);
+    }
+
+    if (isEncryptable() && _inv != nullptr) {
+        if (usesConfigChannel()) {
+            if (_inv->isConfigChannelValid()) {
+                _inv->encryptConfigBlock(&_sendPayload[10]);
+            }
+        } else if (_inv->isEncryptionActive()) {
+            _inv->encryptPayloadBlock(&_sendPayload[10], encryptionTimestamp());
+        }
+    }
+
+    _sendPayload[size] = crc8(_sendPayload, size);
+    return _sendPayload;
 }
 
 String CommandAbstract::dumpDataPayload()
@@ -59,7 +96,7 @@ String CommandAbstract::dumpDataPayload()
 
 uint8_t CommandAbstract::getDataSize() const
 {
-    return _payload_size + 1; // Original payload plus crc8
+    return wirePayloadSize() + 1; // Original payload plus crc8
 }
 
 void CommandAbstract::setTargetAddress(const uint64_t address)
