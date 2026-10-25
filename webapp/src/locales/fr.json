@@ -127,6 +127,13 @@
         "LiveData": "Données en direct",
         "SerialNumber": "Numéro de série : ",
         "CurrentLimit": "Limite de courant",
+        "Encryption": "AES",
+        "EncryptionStatus0": "Chiffrement désactivé",
+        "EncryptionStatus1": "Pas de handshake / seed",
+        "EncryptionStatus2": "Handshake en cours",
+        "EncryptionStatus3": "Chiffrement OK",
+        "EncryptionStatus4": "L'onduleur requiert AES — à activer",
+        "ActivateAES": "AES requis",
         "ShowSetInverterLimit": "Afficher / Régler la limite de l'onduleur",
         "TurnOnOff": "Allumer / Eteindre l'onduleur",
         "ShowInverterInfo": "Afficher les informations sur l'onduleur",
@@ -561,7 +568,9 @@
         "DeleteMsg": "Êtes-vous sûr de vouloir supprimer l'onduleur \"{name}\" avec le numéro de série \"{serial}\" ?",
         "Delete": "Supprimer",
         "YieldDayCorrection": "Yield Day Correction",
-        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight"
+        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight",
+        "EncryptionEnable": "Encryption / AES (HM 1.5.x+)",
+        "EncryptionEnableHint": "Enables AES-encrypted radio communication for inverters running firmware 1.5.x or newer that communicate encrypted. Leave disabled for older inverters."
     },
     "fileadmin": {
         "ConfigManagement": "Gestion de la configuration",

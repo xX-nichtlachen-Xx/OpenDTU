@@ -127,6 +127,13 @@
         "LiveData": "Live Data",
         "SerialNumber": "Serial Number: ",
         "CurrentLimit": "Current Limit",
+        "Encryption": "AES",
+        "EncryptionStatus0": "Encryption disabled",
+        "EncryptionStatus1": "No handshake / seed",
+        "EncryptionStatus2": "Handshake in progress",
+        "EncryptionStatus3": "Encryption OK",
+        "EncryptionStatus4": "Inverter requires AES — please enable",
+        "ActivateAES": "AES required",
         "ShowSetInverterLimit": "Show / Set Inverter Limit",
         "TurnOnOff": "Turn Inverter on/off",
         "ShowInverterInfo": "Show Inverter Info",
@@ -574,7 +581,9 @@
         "DeleteMsg": "Are you sure you want to delete the inverter \"{name}\" with serial number {serial}?",
         "Delete": "Delete",
         "YieldDayCorrection": "Yield Day Correction",
-        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight"
+        "YieldDayCorrectionHint": "Sum up daily yield even if the inverter is restarted. Value will be reset at midnight",
+        "EncryptionEnable": "Encryption / AES (HM 1.5.x+)",
+        "EncryptionEnableHint": "Enables AES-encrypted radio communication for inverters running firmware 1.5.x or newer that communicate encrypted. Leave disabled for older inverters."
     },
     "fileadmin": {
         "ConfigManagement": "Config Management",

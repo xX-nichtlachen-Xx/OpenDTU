@@ -127,6 +127,13 @@
         "LiveData": "Live-Daten",
         "SerialNumber": "Seriennummer: ",
         "CurrentLimit": "Aktuelles Limit",
+        "Encryption": "AES",
+        "EncryptionStatus0": "Verschlüsselung deaktiviert",
+        "EncryptionStatus1": "Kein Handshake / Seed",
+        "EncryptionStatus2": "Handshake läuft",
+        "EncryptionStatus3": "Verschlüsselung ok",
+        "EncryptionStatus4": "Inverter erfordert AES – bitte aktivieren",
+        "ActivateAES": "AES erfordert",
         "ShowSetInverterLimit": "Zeige / Setze Wechselrichterlimit",
         "TurnOnOff": "Schalte Wechselrichter ein oder aus",
         "ShowInverterInfo": "Zeige Wechselrichter-Informationen",
@@ -574,7 +581,9 @@
         "DeleteMsg": "Soll der Wechselrichter \"{name}\" mit der Seriennummer {serial} wirklich gelöscht werden?",
         "Delete": "Löschen",
         "YieldDayCorrection": "Tagesertragskorrektur",
-        "YieldDayCorrectionHint": "Summiert den Tagesertrag, auch wenn der Wechselrichter neu gestartet wird. Der Wert wird um Mitternacht zurückgesetzt"
+        "YieldDayCorrectionHint": "Summiert den Tagesertrag, auch wenn der Wechselrichter neu gestartet wird. Der Wert wird um Mitternacht zurückgesetzt",
+        "EncryptionEnable": "Verschlüsselung / AES (HM 1.5.x+)",
+        "EncryptionEnableHint": "Aktiviert die AES-verschlüsselte Funkkommunikation für Wechselrichter mit Firmware 1.5.x oder neuer, die verschlüsselt kommunizieren. Bei älteren Wechselrichtern deaktiviert lassen."
     },
     "fileadmin": {
         "ConfigManagement": "Konfigurationsverwaltung",

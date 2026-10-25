@@ -3,9 +3,11 @@
  * Copyright (C) 2022-2026 Thomas Basler and others
  */
 #include "InverterAbstract.h"
+#include "../HoymilesCrypto.h"
 #include "crc.h"
 #include <cstring>
 #include <esp_log.h>
+#include <esp_random.h>
 
 #undef TAG
 static const char* TAG = "hoymiles";
@@ -275,7 +277,13 @@ uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
         }
     }
 
-    if (!cmd.handleResponse(_rxFragmentBuffer, _rxFragmentMaxPacketId)) {
+    bool handled = cmd.handleResponse(_rxFragmentBuffer, _rxFragmentMaxPacketId);
+    if (!handled && isEncryptionActive()) {
+        decryptResponseFragments();
+        handled = cmd.handleResponse(_rxFragmentBuffer, _rxFragmentMaxPacketId);
+    }
+
+    if (!handled) {
         cmd.gotTimeout();
         return FRAGMENT_HANDLE_ERROR;
     }
@@ -300,4 +308,191 @@ void InverterAbstract::performDailyTask()
 void InverterAbstract::resetRadioStats()
 {
     RadioStats = {};
+}
+
+void InverterAbstract::setEncryptionEnabled(const bool enabled)
+{
+    _encryptionEnabled = enabled;
+    if (!enabled) {
+        _encryptionSessionActive = false;
+        _encryptionKeyValid = false;
+        _encryptionConfigValid = false;
+        _encryptionSessionConfirmed = false;
+        _encryptionFailReported = false;
+    }
+}
+
+bool InverterAbstract::getEncryptionEnabled() const
+{
+    return _encryptionEnabled;
+}
+
+bool InverterAbstract::isEncryptionActive() const
+{
+    return _encryptionEnabled && _encryptionSessionActive;
+}
+
+void InverterAbstract::setEncryptionSessionActive(const bool active)
+{
+    if (active && !_encryptionSessionActive) {
+        ESP_LOGD(TAG, "Encryption session active, pending confirmation (inv %s)", _serialString.c_str());
+    }
+    if (!active) {
+        _encryptionSessionConfirmed = false;
+    }
+    _encryptionSessionActive = active;
+}
+
+void InverterAbstract::setEncryptionSeed(const uint8_t seed[16])
+{
+    memcpy(_encryptionSeed, seed, 16);
+    _encryptionKeyValid = false; // force re-derivation
+    deriveConfigKeys();
+}
+
+const uint8_t* InverterAbstract::getEncryptionSeed() const
+{
+    return _encryptionSeed;
+}
+
+void InverterAbstract::generateEncryptionSeed()
+{
+    for (uint8_t i = 0; i < 14; i++) {
+        _encryptionSeed[i] = static_cast<uint8_t>(esp_random());
+    }
+    const uint16_t chk = crc16(_encryptionSeed, 14);
+    _encryptionSeed[14] = static_cast<uint8_t>(chk >> 8);
+    _encryptionSeed[15] = static_cast<uint8_t>(chk);
+    _encryptionKeyValid = false;
+    _encryptionFailReported = false;
+    deriveConfigKeys();
+    ESP_LOGD(TAG, "Encryption handshake started (inv %s, seed fp %02x)",
+        _serialString.c_str(), crc8(_encryptionSeed, 16));
+}
+
+void InverterAbstract::deriveConfigKeys()
+{
+    const uint8_t sn4[4] = {
+        _serial.b[3], _serial.b[2], _serial.b[1], _serial.b[0]
+    };
+    HoymilesCrypto::deriveConfigKeyIv(_encryptionSeed, sn4, _encryptionConfigKey, _encryptionConfigIv);
+    _encryptionConfigValid = true;
+}
+
+bool InverterAbstract::isConfigChannelValid() const
+{
+    return _encryptionEnabled && _encryptionConfigValid;
+}
+
+bool InverterAbstract::isEncryptionSessionConfirmed() const
+{
+    return _encryptionSessionConfirmed;
+}
+
+void InverterAbstract::encryptConfigBlock(uint8_t block[16])
+{
+    HoymilesCrypto::encryptBlock(_encryptionConfigKey, _encryptionConfigIv, block, block, 16);
+}
+
+#define ENCRYPTION_MAX_FAILURES 3
+
+void InverterAbstract::handleEncryptionResult(const bool success)
+{
+    if (!isEncryptionActive()) {
+        return;
+    }
+    if (success) {
+        _encryptionFailCount = 0;
+        if (!_encryptionSessionConfirmed) {
+            // First real encrypted reply decoded -> the handshake actually worked.
+            _encryptionSessionConfirmed = true;
+            _encryptionFailReported = false;
+            ESP_LOGI(TAG, "Encryption enabled for inverter %s", _serialString.c_str());
+            ESP_LOGD(TAG, "Encryption session confirmed (inv %s)", _serialString.c_str());
+        }
+        return;
+    }
+    if (++_encryptionFailCount >= ENCRYPTION_MAX_FAILURES) {
+        if (!_encryptionFailReported) {
+            _encryptionFailReported = true;
+            ESP_LOGW(TAG, "Encryption handshake failed for inverter %s", _serialString.c_str());
+            ESP_LOGD(TAG, "Encryption handshake failed: %s (inv %s)",
+                _encryptionSessionConfirmed ? "repeated rejects" : "inverter did not accept the session",
+                _serialString.c_str());
+        }
+        ESP_LOGD(TAG, "Encryption session lost, re-handshaking (inv %s)", _serialString.c_str());
+        // Drop the session; the next enqueueSeedIfNeeded() generates a fresh seed
+        // and re-runs the 0x35/0x36 handshake.
+        _encryptionSessionActive = false;
+        _encryptionSessionConfirmed = false;
+        _encryptionKeyValid = false;
+        _encryptionConfigValid = false;
+        _encryptionFailCount = 0;
+    }
+}
+
+void InverterAbstract::updateSessionKeys(const uint32_t unixTime)
+{
+    if (_encryptionKeyValid && (_encryptionKeyTime / 300 == unixTime / 300)) {
+        return;
+    }
+
+    const bool wasValid = _encryptionKeyValid;
+    const uint32_t oldBucket = _encryptionKeyTime / 300;
+    const uint32_t newBucket = unixTime / 300;
+
+    const uint8_t sn4[4] = {
+        _serial.b[3], _serial.b[2], _serial.b[1], _serial.b[0]
+    };
+    HoymilesCrypto::deriveKeyIv(_encryptionSeed, sn4, unixTime, _encryptionKey, _encryptionIv);
+    _encryptionKeyTime = unixTime;
+    _encryptionKeyValid = true;
+
+    if (wasValid) {
+        ESP_LOGD(TAG, "Rekey (bucket ..%02x -> ..%02x) (inv %s)",
+            static_cast<unsigned>(oldBucket & 0xff), static_cast<unsigned>(newBucket & 0xff), _serialString.c_str());
+    } else {
+        ESP_LOGD(TAG, "Session key derived (fp %02x, bucket ..%02x) (inv %s)",
+            crc8(_encryptionKey, 16), static_cast<unsigned>(newBucket & 0xff), _serialString.c_str());
+    }
+}
+
+void InverterAbstract::encryptPayloadBlock(uint8_t block[16], const uint32_t unixTime)
+{
+    updateSessionKeys(unixTime);
+    HoymilesCrypto::encryptBlock(_encryptionKey, _encryptionIv, block, block, 16);
+}
+
+void InverterAbstract::decryptPayloadBlock(uint8_t block[16])
+{
+    if (!_encryptionKeyValid) {
+        return;
+    }
+    HoymilesCrypto::decryptBlock(_encryptionKey, _encryptionIv, block, block, 16);
+}
+
+void InverterAbstract::decryptResponseFragments()
+{
+    for (uint8_t i = 0; i < _rxFragmentMaxPacketId; i++) {
+        if (_rxFragmentBuffer[i].len == 16) {
+            decryptPayloadBlock(_rxFragmentBuffer[i].fragment);
+        }
+    }
+
+    fragment_t& last = _rxFragmentBuffer[_rxFragmentMaxPacketId - 1];
+    if (last.len == 16) {
+        const uint8_t pad = last.fragment[15];
+        if (pad >= 1 && pad <= 16) {
+            bool validPad = true;
+            for (uint8_t k = 0; k < pad; k++) {
+                if (last.fragment[16 - 1 - k] != pad) {
+                    validPad = false;
+                    break;
+                }
+            }
+            if (validPad) {
+                last.len = 16 - pad;
+            }
+        }
+    }
 }

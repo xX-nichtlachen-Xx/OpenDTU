@@ -313,6 +313,14 @@
                     :tooltip="$t('inverteradmin.YieldDayCorrectionHint')"
                     wide
                 />
+
+                <InputElement
+                    :label="$t('inverteradmin.EncryptionEnable')"
+                    v-model="selectedInverterData.encryption_enable"
+                    type="checkbox"
+                    :tooltip="$t('inverteradmin.EncryptionEnableHint')"
+                    wide
+                />
             </div>
         </div>
         <template #footer>
