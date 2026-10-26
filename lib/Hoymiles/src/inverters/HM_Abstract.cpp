@@ -12,6 +12,8 @@
 #include "commands/PowerControlCommand.h"
 #include "commands/RealTimeRunDataCommand.h"
 #include "commands/RfInfoCommand.h"
+#include "commands/SelfCheckStartCommand.h"
+#include "commands/SelfCheckStateCommand.h"
 #include "commands/SystemConfigParaCommand.h"
 
 HM_Abstract::HM_Abstract(HoymilesRadio* radio, const uint64_t serial)
@@ -203,6 +205,31 @@ bool HM_Abstract::sendRfInfoRequest()
     }
 
     auto cmd = _radio->prepareCommand<RfInfoCommand>(this);
+    _radio->enqueCommand(cmd);
+
+    return true;
+}
+
+bool HM_Abstract::sendSelfCheckStartRequest()
+{
+    if (!getEnableCommands() || SelfCheck()->isActive()) {
+        return false;
+    }
+
+    auto cmd = _radio->prepareCommand<SelfCheckStartCommand>(this);
+    SelfCheck()->setStarting();
+    _radio->enqueCommand(cmd);
+
+    return true;
+}
+
+bool HM_Abstract::sendSelfCheckStateRequest()
+{
+    time_t now;
+    time(&now);
+
+    auto cmd = _radio->prepareCommand<SelfCheckStateCommand>(this);
+    cmd->setTime(now);
     _radio->enqueCommand(cmd);
 
     return true;

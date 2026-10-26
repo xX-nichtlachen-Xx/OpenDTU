@@ -23,6 +23,7 @@ InverterAbstract::InverterAbstract(HoymilesRadio* radio, const uint64_t serial)
     _gridProfileParser.reset(new GridProfileParser());
     _powerCommandParser.reset(new PowerCommandParser());
     _rfInfoParser.reset(new RfInfoParser());
+    _selfCheckParser.reset(new SelfCheckParser());
     _statisticsParser.reset(new StatisticsParser());
     _systemConfigParaParser.reset(new SystemConfigParaParser());
 }
@@ -178,6 +179,11 @@ RfInfoParser* InverterAbstract::RfInfo()
     return _rfInfoParser.get();
 }
 
+SelfCheckParser* InverterAbstract::SelfCheck()
+{
+    return _selfCheckParser.get();
+}
+
 StatisticsParser* InverterAbstract::Statistics()
 {
     return _statisticsParser.get();
@@ -271,6 +277,7 @@ uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
         if (_rxFragmentRetransmitCnt++ < cmd.getMaxRetransmitCount()) {
             return _rxFragmentLastPacketId + 1;
         } else {
+            cmd.handlePartialResponse(_rxFragmentBuffer, _rxFragmentLastPacketId, _rxFragmentMaxPacketId);
             cmd.gotTimeout();
             return FRAGMENT_RETRANSMIT_TIMEOUT;
         }
@@ -283,6 +290,7 @@ uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
             if (_rxFragmentRetransmitCnt++ < cmd.getMaxRetransmitCount()) {
                 return i + 1;
             } else {
+                cmd.handlePartialResponse(_rxFragmentBuffer, _rxFragmentLastPacketId, _rxFragmentMaxPacketId);
                 cmd.gotTimeout();
                 return FRAGMENT_RETRANSMIT_TIMEOUT;
             }

@@ -389,8 +389,13 @@ void GridProfileParser::appendFragment(const uint8_t offset, const uint8_t* payl
 
 String GridProfileParser::getProfileName() const
 {
+    return getProfileNameById(_payloadGridProfile[0], _payloadGridProfile[1]);
+}
+
+String GridProfileParser::getProfileNameById(const uint8_t lIdx, const uint8_t hIdx)
+{
     for (auto& ptype : _profileTypes) {
-        if (ptype.lIdx == _payloadGridProfile[0] && ptype.hIdx == _payloadGridProfile[1]) {
+        if (ptype.lIdx == lIdx && ptype.hIdx == hIdx) {
             return ptype.Name;
         }
     }

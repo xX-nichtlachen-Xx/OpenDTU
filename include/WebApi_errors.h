@@ -97,4 +97,11 @@ enum WebApiError {
 
     HardwareBase = 12000,
     HardwarePinMappingLength,
+
+    SelfCheckBase = 13000,
+    SelfCheckSerialZero,
+    SelfCheckInvalidInverter,
+    SelfCheckCommandsDisabled,
+    SelfCheckAlreadyRunning,
+    SelfCheckStarted,
 };

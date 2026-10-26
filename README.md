@@ -1,4 +1,28 @@
-# OpenDTU
+# openDTUonSelfTest
+
+
+
+Run the original Hoymiles self-test procedure on the microinverter
+
+
+
+
+[Discussion and Download ](https://github.com/xX-nichtlachen-Xx/OpenDTU/discussions/6)
+
+[Discussion and Download (openDTU)](https://github.com/xX-nichtlachen-Xx/OpenDTU/discussions/6)
+
+
+
+Manual:
+<img width="1294" height="787" alt="grafik" src="https://github.com/user-attachments/assets/00009829-eb5c-4bf3-922b-7c32c38bef04" />
+
+
+
+[Main Discord Channel](https://discord.com/channels/984173303147155506/1547311994300928040)
+
+[Feel free to join the Discord for updates and discussions, etc.](https://discord.com/invite/CmhuZwWZM2)
+
+
 
 [![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
 [![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
