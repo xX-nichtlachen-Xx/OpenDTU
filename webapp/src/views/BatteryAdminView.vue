@@ -204,7 +204,7 @@
                         v-model="batteryConfigList.discharge_current_limit_below_voltage"
                         type="number"
                         min="0"
-                        max="60"
+                        max="66"
                         step="0.01"
                         postfix="V"
                         :tooltip="$t('batteryadmin.DischargeCurrentLimitBelowVoltageInfo')"
@@ -318,7 +318,7 @@
                         v-model="batteryConfigList.charge_current_limit_below_voltage"
                         type="number"
                         min="0"
-                        max="60"
+                        max="66"
                         step="0.01"
                         postfix="V"
                         :tooltip="$t('batteryadmin.ChargeCurrentLimitBelowVoltageInfo')"
@@ -533,7 +533,7 @@
                             v-model="batteryConfigList.zendure.app_key"
                             type="text"
                             minlength="8"
-                            maxlength="8"
+                            maxlength="16"
                             :key="$route.fullPath"
                         />
                         <InputElement
@@ -550,7 +550,8 @@
                                 <div
                                     v-if="
                                         batteryConfigList.zendure.secret.length != 32 ||
-                                        batteryConfigList.zendure.app_key.length != 8
+                                        batteryConfigList.zendure.app_key.length < 8 ||
+                                        batteryConfigList.zendure.app_key.length > 16
                                     "
                                     class="alert alert-warning"
                                     role="alert"
