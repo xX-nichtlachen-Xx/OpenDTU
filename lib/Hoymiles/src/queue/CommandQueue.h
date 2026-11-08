@@ -14,4 +14,7 @@ public:
     void replaceEntries(std::shared_ptr<CommandAbstract> cmd);
 
     uint8_t countSimilarCommands(std::shared_ptr<CommandAbstract> cmd);
+
+    bool hasFirmwareUpdateCommands(InverterAbstract* inv);
+    void removeFirmwareUpdateCommands(InverterAbstract* inv);
 };

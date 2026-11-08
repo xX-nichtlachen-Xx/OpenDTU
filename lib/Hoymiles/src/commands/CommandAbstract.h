@@ -29,10 +29,10 @@ public:
     explicit CommandAbstract(InverterAbstract* inv, const uint64_t router_address = 0);
     virtual ~CommandAbstract() { };
 
-    const uint8_t* getDataPayload();
+    virtual const uint8_t* getDataPayload();
     String dumpDataPayload();
 
-    uint8_t getDataSize() const;
+    virtual uint8_t getDataSize() const;
 
     uint64_t getTargetAddress() const;
 
@@ -59,8 +59,12 @@ public:
     // Sets the amount how often a missing fragment is re-requested if it was not available
     virtual uint8_t getMaxRetransmitCount() const;
 
-    // Returns whether multiple instances of this command are allowed in the command queue.
+    virtual bool expectsResponse() const { return true; }
+
     virtual QueueInsertType getQueueInsertType() const { return QueueInsertType::RemoveNewest; }
+
+    virtual bool isFirmwareDataCommand() const { return false; }
+
     virtual bool areSameParameter(CommandAbstract* other);
 
 protected:

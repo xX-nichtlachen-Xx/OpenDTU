@@ -31,6 +31,9 @@ public:
     void removeCommands(InverterAbstract* inv);
     uint8_t countSimilarCommands(std::shared_ptr<CommandAbstract> cmd);
 
+    bool hasFirmwareUpdateCommands(InverterAbstract* inv);
+    void removeFirmwareUpdateCommands(InverterAbstract* inv);
+
     void enqueCommand(std::shared_ptr<CommandAbstract> cmd)
     {
         DEBUG_PRINT("Queue size before: %ld", _commandQueue.size());
@@ -83,11 +86,14 @@ protected:
     void sendRetransmitPacket(const uint8_t fragment_id);
     void sendLastPacketAgain();
     void handleReceivedPackage();
+    bool rxPeriodFinished();
 
     serial_u _dtuSerial;
     CommandQueue _commandQueue;
     bool _isInitialized = false;
     bool _busyFlag = false;
+
+    bool _txFailed = false;
 
     TimeoutHelper _rxTimeout;
 };

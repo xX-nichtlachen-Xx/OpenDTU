@@ -150,6 +150,40 @@ bool InverterAbstract::sendChangeChannelRequest()
     return false;
 }
 
+bool InverterAbstract::getFirmwareUpdateRunning()
+{
+    return false;
+}
+
+uint8_t InverterAbstract::getFirmwareUpdateProgress() const
+{
+    return 0;
+}
+
+void InverterAbstract::abortFirmwareUpdateRequest()
+{
+}
+
+void InverterAbstract::failFirmwareUpdateRequest()
+{
+}
+
+FirmwareUpdateResult InverterAbstract::getFirmwareUpdateResult() const
+{
+    return FirmwareUpdateResult::None;
+}
+
+void InverterAbstract::resendFirmwareRow(const uint8_t* rowData, const uint16_t rowLen, const uint8_t attempt)
+{
+    (void)rowData;
+    (void)rowLen;
+    (void)attempt;
+}
+
+void InverterAbstract::onFirmwareRowCompleted()
+{
+}
+
 HoymilesRadio* InverterAbstract::getRadio()
 {
     return _radio;
@@ -237,9 +271,26 @@ void InverterAbstract::addRxFragment(const uint8_t fragment[], const uint8_t len
     }
 }
 
+bool InverterAbstract::isResponseComplete() const
+{
+    if (_rxFragmentMaxPacketId == 0) {
+        return false; // last fragment (0x80) not seen yet
+    }
+    for (uint8_t i = 0; i < _rxFragmentMaxPacketId; i++) {
+        if (!_rxFragmentBuffer[i].wasReceived) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Returns Zero on Success or the Fragment ID for retransmit or error code
 uint8_t InverterAbstract::verifyAllFragments(CommandAbstract& cmd)
 {
+    if (!cmd.expectsResponse()) {
+        return FRAGMENT_OK;
+    }
+
     // All missing
     if (_rxFragmentLastPacketId == 0) {
         ESP_LOGW(TAG, "All missing");

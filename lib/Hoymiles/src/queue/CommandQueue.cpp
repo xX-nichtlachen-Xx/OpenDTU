@@ -49,3 +49,20 @@ uint8_t CommandQueue::countSimilarCommands(std::shared_ptr<CommandAbstract> cmd)
             return cmd->areSameParameter(v.get());
         });
 }
+
+bool CommandQueue::hasFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    return std::any_of(_queue.begin(), _queue.end(),
+        [&](const auto& v) { return v->isFirmwareDataCommand() && v->getTargetAddress() == inv->serial(); });
+}
+
+void CommandQueue::removeFirmwareUpdateCommands(InverterAbstract* inv)
+{
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    auto it = std::remove_if(_queue.begin(), _queue.end(),
+        [&](const auto& v) { return v->isFirmwareDataCommand() && v->getTargetAddress() == inv->serial(); });
+    _queue.erase(it, _queue.end());
+}

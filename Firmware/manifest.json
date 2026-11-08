@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "generated": "2026-09-29T15:22:50+00:00",
+  "repo": "xX-nichtlachen-Xx/OpenDTU",
+  "ref": "FirmwareUpdate_HM_IV",
+  "commit": "5c9de6180086762284e9790f6c755531d27b195c",
+  "base_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/",
+  "changelog_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/Hoymiles_Inverter_Firmware_Changelog.txt",
+  "mapping_url": "https://raw.githubusercontent.com/xX-nichtlachen-Xx/OpenDTU/FirmwareUpdate_HM_IV/Firmware/Inverter_Serial_to_File_Mapping.txt",
+  "max_size": 819200,
+  "files": [
+  ]
+}

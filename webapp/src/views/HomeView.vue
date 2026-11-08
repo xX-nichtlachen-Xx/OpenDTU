@@ -350,7 +350,73 @@
 
     <ModalDialog modalId="devInfoView" :title="$t('home.InverterInfo')" :loading="devInfoLoading">
         <DevInfo :devInfoList="devInfoList" />
+        <BootstrapAlert v-model="showFirmwareUpdateAlert" :variant="firmwareUpdateAlertType" class="mb-3">
+            {{ firmwareUpdateAlertMessage }}
+        </BootstrapAlert>
+        <template #footer>
+            <div
+                v-if="devInfoList.firmware_update_running"
+                class="d-flex align-items-center flex-grow-1 me-2"
+                style="min-width: 180px"
+            >
+                <div class="progress flex-grow-1" style="height: 12px">
+                    <div
+                        class="progress-bar"
+                        role="progressbar"
+                        :style="{ width: `${Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100)}%` }"
+                        :aria-valuenow="Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100)"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    ></div>
+                </div>
+                <span class="ms-2 small text-muted">
+                    {{ Math.min(Math.max(devInfoList.firmware_update_progress || 0, 0), 100) }}%
+                </span>
+            </div>
+            <button
+                v-if="devInfoList.firmware_update_running"
+                type="button"
+                class="btn btn-danger me-2"
+                @click="onAbortFirmwareUpdate(devInfoList.serial)"
+            >
+                {{ $t('home.AbortUpdate') }}
+            </button>
+            <button
+                type="button"
+                class="btn btn-secondary me-2"
+                :disabled="
+                    devInfoLoading ||
+                    !devInfoList.serial ||
+                    devInfoList.firmware_update_running ||
+                    devInfoRefreshPending
+                "
+                @click="onRefreshDevInfo(devInfoList.serial)"
+            >
+                {{ devInfoRefreshPending ? $t('home.RefreshDevInfoPending') : $t('home.RefreshDevInfo') }}
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="
+                    devInfoLoading ||
+                    !devInfoList.serial ||
+                    !devInfoList.firmware_update_supported ||
+                    devInfoList.firmware_update_running ||
+                    firmwareUpdateStartPending
+                "
+                @click="onOpenFirmwareSource(devInfoList.serial)"
+            >
+                {{ devInfoList.firmware_update_running ? $t('home.UpdateRunning') : $t('home.StartUpdate') }}
+            </button>
+        </template>
     </ModalDialog>
+
+    <FirmwareSourceDialog
+        ref="firmwareSourceDialog"
+        :serial="firmwareSourceSerial"
+        :modelName="devInfoList.hw_model_name || ''"
+        @flash="onFlashFromSource"
+    />
 
     <ModalDialog modalId="gridProfileView" :title="$t('home.GridProfile')" :loading="gridProfileLoading">
         <GridProfile :gridProfileList="gridProfileList" :gridProfileRawList="gridProfileRawList" />
@@ -503,6 +569,7 @@ import BootstrapAlert from '@/components/BootstrapAlert.vue';
 import DataAgeDisplay from '@/components/DataAgeDisplay.vue';
 import DevInfo from '@/components/DevInfo.vue';
 import EventLog from '@/components/EventLog.vue';
+import FirmwareSourceDialog from '@/components/FirmwareSourceDialog.vue';
 import GridProfile from '@/components/GridProfile.vue';
 import HintView from '@/components/HintView.vue';
 import InverterChannelInfo from '@/components/InverterChannelInfo.vue';
@@ -540,6 +607,7 @@ export default defineComponent({
         DataAgeDisplay,
         DevInfo,
         EventLog,
+        FirmwareSourceDialog,
         GridProfile,
         HintView,
         InverterChannelInfo,
@@ -572,6 +640,9 @@ export default defineComponent({
             devInfoView: {} as bootstrap.Modal,
             devInfoList: {} as DevInfoStatus,
             devInfoLoading: true,
+            devInfoPollHandle: 0,
+            devInfoPollGeneration: 0,
+            devInfoRefreshPending: false,
             gridProfileView: {} as bootstrap.Modal,
             gridProfileList: {} as GridProfileStatus,
             gridProfileRawList: {} as GridProfileRawdata,
@@ -600,6 +671,12 @@ export default defineComponent({
             alertTypePower: 'info',
             showAlertPower: false,
             successCommandPower: '',
+            firmwareUpdateAlertMessage: '',
+            firmwareUpdateAlertType: 'info',
+            showFirmwareUpdateAlert: false,
+            firmwareUpdateStartPending: false,
+            firmwareSourceView: {} as bootstrap.Modal,
+            firmwareSourceSerial: '',
 
             isWebsocketConnected: false,
         };
@@ -620,9 +697,19 @@ export default defineComponent({
         this.gridProfileView = new bootstrap.Modal('#gridProfileView');
         this.limitSettingView = new bootstrap.Modal('#limitSettingView');
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
+        document.getElementById('devInfoView')?.addEventListener('hide.bs.modal', () => {
+            this.stopDevInfoPolling();
+        });
+        this.firmwareSourceView = new bootstrap.Modal('#firmwareSourceView');
+        document.getElementById('firmwareSourceView')?.addEventListener('hidden.bs.modal', () => {
+            if (this.firmwareSourceSerial) {
+                this.devInfoView.show();
+            }
+        });
     },
     unmounted() {
         this.socket?.close();
+        this.stopDevInfoPolling();
     },
     updated() {
         console.log('Updated');
@@ -767,15 +854,240 @@ export default defineComponent({
         },
         onShowDevInfo(serial: string) {
             this.devInfoLoading = true;
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
             fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
                 .then((response) => handleResponse(response, this.$emitter, this.$router))
                 .then((data) => {
                     this.devInfoList = data;
                     this.devInfoList.serial = serial;
                     this.devInfoLoading = false;
+                    if (data.firmware_update_running) {
+                        this.startDevInfoPolling(serial);
+                    } else {
+                        this.applyFirmwareUpdateResult(data, serial);
+                    }
                 });
 
             this.devInfoView.show();
+        },
+        onOpenFirmwareSource(serial: string) {
+            this.firmwareSourceSerial = serial;
+            const dialog = this.$refs.firmwareSourceDialog as InstanceType<typeof FirmwareSourceDialog>;
+            dialog.reset();
+            this.devInfoView.hide();
+            this.firmwareSourceView.show();
+        },
+        onFlashFromSource() {
+            const serial = this.firmwareSourceSerial;
+            // Hiding re-opens the inverter info dialog (see mounted()), which
+            // then shows the progress bar once the update has been started.
+            this.firmwareSourceView.hide();
+            this.onStartFirmwareUpdate(serial);
+        },
+        onStartFirmwareUpdate(serial: string) {
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
+            this.firmwareUpdateStartPending = true;
+
+            fetch('/api/devinfo/update?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type == 'success') {
+                        this.getInitialData(false);
+                        this.startDevInfoPolling(serial);
+                    } else {
+                        this.firmwareUpdateStartPending = false;
+                        this.firmwareUpdateAlertMessage = response.message || 'Firmware update could not be started.';
+                        this.firmwareUpdateAlertType = 'danger';
+                        this.showFirmwareUpdateAlert = true;
+                    }
+                })
+                .catch(() => {
+                    this.firmwareUpdateStartPending = false;
+                    this.firmwareUpdateAlertMessage = 'Firmware update could not be started.';
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
+                    console.warn('Failed to start firmware update');
+                });
+        },
+        onAbortFirmwareUpdate(serial: string) {
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
+
+            fetch('/api/devinfo/update/abort?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (response.type != 'success') {
+                        this.firmwareUpdateAlertMessage = response.message || 'Firmware update could not be aborted.';
+                        this.firmwareUpdateAlertType = 'danger';
+                        this.showFirmwareUpdateAlert = true;
+                    }
+                })
+                .catch(() => {
+                    this.firmwareUpdateAlertMessage = 'Firmware update could not be aborted.';
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
+                    console.warn('Failed to abort firmware update');
+                });
+        },
+        applyFirmwareUpdateResult(data: DevInfoStatus, serial?: string) {
+            const result = data.firmware_update_result || 'none';
+
+            this.devInfoList.valid_data = false;
+            this.devInfoList.firmware_update_running = false;
+            this.devInfoList.firmware_update_result = result;
+
+            switch (result) {
+                case 'success':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateSuccess');
+                    this.firmwareUpdateAlertType = 'success';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                case 'failed':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateFailed');
+                    this.firmwareUpdateAlertType = 'danger';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                case 'aborted':
+                    this.firmwareUpdateAlertMessage = this.$t('home.UpdateAborted');
+                    this.firmwareUpdateAlertType = 'warning';
+                    this.showFirmwareUpdateAlert = true;
+                    break;
+                default:
+                    break;
+            }
+
+            if (serial) {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((freshData) => {
+                        this.devInfoList = freshData;
+                        this.devInfoList.serial = serial;
+                        this.devInfoLoading = false;
+                    })
+                    .catch(() => {
+                        this.devInfoLoading = false;
+                    });
+            }
+        },
+        onRefreshDevInfo(serial: string) {
+            this.stopDevInfoPolling();
+            const generation = ++this.devInfoPollGeneration;
+            this.devInfoRefreshPending = true;
+            this.firmwareUpdateAlertMessage = '';
+            this.firmwareUpdateAlertType = 'info';
+            this.showFirmwareUpdateAlert = false;
+
+            const fail = (message: string) => {
+                if (generation !== this.devInfoPollGeneration) {
+                    return;
+                }
+                this.devInfoRefreshPending = false;
+                this.firmwareUpdateAlertMessage = message;
+                this.firmwareUpdateAlertType = 'warning';
+                this.showFirmwareUpdateAlert = true;
+            };
+
+            let attempts = 0;
+            const maxAttempts = 20; // 20 x 2s = 40s
+            const poll = () => {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((data) => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        this.devInfoList = data;
+                        this.devInfoList.serial = serial;
+                        if (data.valid_data) {
+                            this.devInfoRefreshPending = false;
+                            this.devInfoPollHandle = 0;
+                        } else if (++attempts >= maxAttempts) {
+                            this.devInfoPollHandle = 0;
+                            fail(this.$t('home.RefreshDevInfoTimeout'));
+                        } else {
+                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        }
+                    })
+                    .catch(() => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        if (++attempts >= maxAttempts) {
+                            this.devInfoPollHandle = 0;
+                            fail(this.$t('home.RefreshDevInfoTimeout'));
+                        } else {
+                            this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                        }
+                    });
+            };
+
+            fetch('/api/devinfo/refresh?inv=' + serial, {
+                method: 'POST',
+                headers: authHeader(),
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    if (generation !== this.devInfoPollGeneration) {
+                        return;
+                    }
+                    if (response.type != 'success') {
+                        fail(response.message || this.$t('home.RefreshDevInfoFailed'));
+                        return;
+                    }
+                    this.devInfoList.valid_data = false;
+                    this.devInfoPollHandle = window.setTimeout(poll, 2000);
+                })
+                .catch(() => {
+                    fail(this.$t('home.RefreshDevInfoFailed'));
+                });
+        },
+        startDevInfoPolling(serial: string) {
+            this.stopDevInfoPolling();
+            const generation = ++this.devInfoPollGeneration;
+            const poll = () => {
+                fetch('/api/devinfo/status?inv=' + serial, { headers: authHeader() })
+                    .then((response) => handleResponse(response, this.$emitter, this.$router))
+                    .then((data) => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        this.firmwareUpdateStartPending = false;
+                        this.devInfoList = data;
+                        this.devInfoList.serial = serial;
+                        if (data.firmware_update_running) {
+                            this.devInfoPollHandle = window.setTimeout(poll, 10000);
+                        } else {
+                            this.devInfoPollHandle = 0;
+                            this.applyFirmwareUpdateResult(data, serial);
+                        }
+                    })
+                    .catch(() => {
+                        if (generation !== this.devInfoPollGeneration) {
+                            return;
+                        }
+                        this.devInfoPollHandle = window.setTimeout(poll, 10000);
+                    });
+            };
+            this.devInfoPollHandle = window.setTimeout(poll, 10000);
+        },
+        stopDevInfoPolling() {
+            this.devInfoPollGeneration++;
+            this.devInfoRefreshPending = false;
+            if (this.devInfoPollHandle) {
+                clearTimeout(this.devInfoPollHandle);
+                this.devInfoPollHandle = 0;
+            }
         },
         onShowGridProfile(serial: string) {
             this.gridProfileLoading = true;
