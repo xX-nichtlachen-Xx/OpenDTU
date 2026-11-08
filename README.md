@@ -1,13 +1,45 @@
-# OpenDTU
+----------------------------------------------------------------------
+## openDTUonTuning
+----------------------------------------------------------------------
+## About
 
-[![OpenDTU Build](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/build.yml)
-[![cpplint](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/cpplint.yml)
-[![Yarn Linting](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnlint.yml)
-[![Yarn Prettier](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnprettier.yml/badge.svg)](https://github.com/tbnobody/OpenDTU/actions/workflows/yarnprettier.yml)
+This OpenDTU fork focuses on Hoymiles microinverters and aims to adapt the software power limit to the technical limits of the hardware, where technically possible and supported by the manufacturer.
 
-## !!! IMPORTANT UPGRADE NOTES !!!
+Knowledge and findings from the OpenDTU community have been collected and consolidated for this project. Thanks to everyone who contributed.
 
-If you are upgrading from a version before 15.03.2023 you have to upgrade the partition table of the ESP32. Please follow the [this](docs/UpgradePartition.md) documentation!
+## Known Original Board Limits
+
+| Series | Maximum Power |
+|--------|---------------|
+| HM_1T  | up to 400 W   |
+| HM_2T  | up to 800 W   |
+| HM_4T  | up to 1500 W  |
+|--------|---------------|
+| HMS_1T | up to 500 W   |
+| HMS_2T | up to 1000 W  |
+| HMS_4T | up to 2000 W  |
+|--------|---------------|
+| HMT_4T | up to 2000 W  |
+|------------------------|
+| HMT_6T | up to 2250 W  |
+
+
+## Notes
+
+The `HMS_*xxxx*W_*x*T` series may also be technically capable of operating beyond these limits. However, this is currently not possible via OTA updates.
+
+
+
+[Nichtlachen's openDTUonTuning discussion](https://github.com/xX-nichtlachen-Xx/OpenDTU/discussions/8)
+
+
+[openDTU discussion Channel](https://github.com/tbnobody/OpenDTU/discussions/3318)
+
+[Main Discord Channel](https://discord.com/channels/984173303147155506/1547311994300928040)
+
+[Feel free to join the Discord for updates and discussions, etc.](https://discord.com/invite/CmhuZwWZM2)
+
+
 
 ## Background
 
@@ -19,41 +51,7 @@ It was the goal to replace the original Hoymiles DTU (Telemetry Gateway) with th
 The documentation can be found [here](https://opendtu.solar/).
 Please feel free to support and create a PR in [this](https://github.com/tbnobody/OpenDTU-docs) repository to make the documentation even better.
 
-## Breaking changes
-
-Generated using: `git log --date=short --pretty=format:"* %h%x09%ad%x09%s" | grep BREAKING`
-
-```code
-* 8cab3335      2025-08-07      BREAKING CHANGE: WebAPI endpoint `/api/limit/config` requires different parameters
-* 8372deaf      2025-04-18      BREAKING CHANGE: Logging newline changed from "\r\n" to "\n"
-* 1b637f08      2024-01-30      BREAKING CHANGE: Web API Endpoint /api/livedata/status and /api/prometheus/metrics
-* e1564780      2024-01-30      BREAKING CHANGE: Web API Endpoint /api/livedata/status and /api/prometheus/metrics
-* f0b5542c      2024-01-30      BREAKING CHANGE: Web API Endpoint /api/livedata/status and /api/prometheus/metrics
-* c27ecc36      2024-01-29      BREAKING CHANGE: Web API Endpoint /api/livedata/status
-* 71d1b3b       2023-11-07      BREAKING CHANGE: Home Assistant Auto Discovery to new naming scheme
-* 04f62e0       2023-04-20      BREAKING CHANGE: Web API Endpoint /api/eventlog/status no nested serial object
-* 59f43a8       2023-04-17      BREAKING CHANGE: Web API Endpoint /api/devinfo/status requires GET parameter inv=
-* 318136d       2023-03-15      BREAKING CHANGE: Updated partition table: Make sure you have a configuration backup and completly reflash the device!
-* 3b7aef6       2023-02-13      BREAKING CHANGE: Web API!
-* d4c838a       2023-02-06      BREAKING CHANGE: Prometheus API!
-* daf847e       2022-11-14      BREAKING CHANGE: Removed deprecated config parsing method
-* 69b675b       2022-11-01      BREAKING CHANGE: Structure WebAPI /api/livedata/status changed
-* 27ed4e3       2022-10-31      BREAKING: Change power factor from percent value to value between 0 and 1
-```
 
 ## Currently supported Inverters
 
 A list of all currently supported inverters can be found in the [supported inverter overview](https://www.opendtu.solar/hardware/inverter_overview/).
-
-## LLM/AI Development Policy
-
-LLM output is expressly prohibited for any direct communication, including the following:
-
-- issues or comments
-- feature requests or comments
-- pull request bodies or comments
-- forum/chat/etc. posts or comments
-
-In short, if you are posting **any** of those things, the output must be your own words, explanation, description, etc., not a verbatim dump of an LLM's output. We expect you to understand what you're posting. Violating this rule will result in closure/deletion of the offending item(s).
-
-An exception will be made for **LLM-assisted translations** if you are having trouble accurately conveying your intent in English. Please explicitly note this ("I have translated this from MyLanguage with an LLM") and, if possible, post in your original language as well.
