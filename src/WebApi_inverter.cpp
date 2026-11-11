@@ -55,6 +55,7 @@ void WebApiInverterClass::onInverterList(AsyncWebServerRequest* request)
             obj["zero_day"] = config.Inverter[i].ZeroYieldDayOnMidnight;
             obj["clear_eventlog"] = config.Inverter[i].ClearEventlogOnMidnight;
             obj["yieldday_correction"] = config.Inverter[i].YieldDayCorrection;
+            obj["max_power"] = config.Inverter[i].MaxPower;
 
             auto inv = Hoymiles.getInverterBySerial(config.Inverter[i].Serial);
             uint8_t max_channels;
@@ -133,6 +134,7 @@ void WebApiInverterClass::onInverterAdd(AsyncWebServerRequest* request)
     inverter->Serial = serial;
 
     strncpy(inverter->Name, root["name"].as<String>().c_str(), INV_MAX_NAME_STRLEN);
+    inverter->MaxPower = root["max_power"] | 0;
 
     WebApi.writeConfig(retMsg, WebApiError::InverterAdded, "Inverter created!");
 
@@ -227,6 +229,7 @@ void WebApiInverterClass::onInverterEdit(AsyncWebServerRequest* request)
         inverter.ZeroYieldDayOnMidnight = root["zero_day"] | false;
         inverter.ClearEventlogOnMidnight = root["clear_eventlog"] | false;
         inverter.YieldDayCorrection = root["yieldday_correction"] | false;
+        inverter.MaxPower = root["max_power"] | 0;
 
         uint8_t arrayCount = 0;
         for (JsonVariant channel : channelArray) {
