@@ -9,6 +9,10 @@ public:
 
     virtual bool handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id);
 
+    bool isEncryptable() const override { return true; }
+
+    uint32_t encryptionTimestamp() const override;
+
 protected:
     void udpateCRC(const uint8_t len);
 };

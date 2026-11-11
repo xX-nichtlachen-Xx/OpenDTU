@@ -153,6 +153,25 @@ void WebApiWsLiveClass::generateInverterCommonJsonResponse(JsonObject& root, std
     root["poll_enabled"] = inv->getEnablePolling();
     root["reachable"] = inv->isReachable();
     root["producing"] = inv->isProducing();
+    uint8_t encryptionStatus = 0;
+    if (inv->getEncryptionEnabled()) {
+        if (!inv->isEncryptionActive()) {
+            encryptionStatus = 1;
+        } else if (!inv->isEncryptionSessionConfirmed()) {
+            encryptionStatus = 2;
+        } else {
+            encryptionStatus = 3;
+        }
+    } else {
+        uint16_t fwVer = inv->DevInfo()->getFwBuildVersionSimple();
+        if (fwVer == 0) {
+            fwVer = inv->DevInfo()->getFwBuildVersion();
+        }
+        if (fwVer >= 10500 && fwVer < 20000) {
+            encryptionStatus = 4;
+        }
+    }
+    root["encryption_status"] = encryptionStatus;
     root["limit_relative"] = inv->SystemConfigPara()->getLimitPercent();
     if (inv->DevInfo()->getMaxPower() > 0) {
         root["limit_absolute"] = inv->SystemConfigPara()->getLimitPercent() * inv->DevInfo()->getMaxPower() / 100.0;

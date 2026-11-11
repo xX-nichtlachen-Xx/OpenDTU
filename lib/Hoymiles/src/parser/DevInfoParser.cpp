@@ -155,7 +155,18 @@ void DevInfoParser::setLastUpdateSimple(const uint32_t lastUpdate)
 uint16_t DevInfoParser::getFwBuildVersion() const
 {
     HOY_SEMAPHORE_TAKE();
-    const uint16_t ret = (static_cast<uint16_t>(_payloadDevInfoAll[0]) << 8) | _payloadDevInfoAll[1];
+    uint16_t ret = (static_cast<uint16_t>(_payloadDevInfoAll[0]) << 8) | _payloadDevInfoAll[1];
+    if (ret == 0) {
+        ret = (static_cast<uint16_t>(_payloadDevInfoSimple[0]) << 8) | _payloadDevInfoSimple[1];
+    }
+    HOY_SEMAPHORE_GIVE();
+    return ret;
+}
+
+uint16_t DevInfoParser::getFwBuildVersionSimple() const
+{
+    HOY_SEMAPHORE_TAKE();
+    const uint16_t ret = (static_cast<uint16_t>(_payloadDevInfoSimple[0]) << 8) | _payloadDevInfoSimple[1];
     HOY_SEMAPHORE_GIVE();
     return ret;
 }

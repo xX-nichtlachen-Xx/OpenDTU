@@ -74,6 +74,29 @@ public:
     // touch any retry counters and can be called on every loop iteration.
     bool isTransactionComplete() const;
 
+    void setEncryptionEnabled(const bool enabled);
+    bool getEncryptionEnabled() const;
+
+    bool isEncryptionActive() const;
+
+    bool isEncryptionSessionConfirmed() const;
+    void setEncryptionSessionActive(const bool active);
+
+    void setEncryptionSeed(const uint8_t seed[16]);
+    const uint8_t* getEncryptionSeed() const;
+    void generateEncryptionSeed();
+
+    void updateSessionKeys(const uint32_t unixTime);
+
+    void encryptPayloadBlock(uint8_t block[16], const uint32_t unixTime);
+    void decryptPayloadBlock(uint8_t block[16]);
+
+    void deriveConfigKeys();
+    bool isConfigChannelValid() const;
+    void encryptConfigBlock(uint8_t block[16]);
+
+    void handleEncryptionResult(const bool success);
+
     void performDailyTask();
 
     void resetRadioStats();
@@ -146,6 +169,27 @@ private:
     bool _clearEventlogOnMidnight = false;
 
     int8_t _lastRssi = -127;
+
+
+    bool _encryptionEnabled = false;
+    bool _encryptionSessionActive = false;
+    bool _encryptionKeyValid = false;
+    uint32_t _encryptionKeyTime = 0;
+    uint8_t _encryptionSeed[16] = {};
+    uint8_t _encryptionKey[16] = {};
+    uint8_t _encryptionIv[16] = {};
+
+    bool _encryptionConfigValid = false;
+    uint8_t _encryptionConfigKey[16] = {};
+    uint8_t _encryptionConfigIv[16] = {};
+
+    uint8_t _encryptionFailCount = 0;
+
+    bool _encryptionSessionConfirmed = false;
+
+    bool _encryptionFailReported = false;
+
+    void decryptResponseFragments();
 
     std::unique_ptr<AlarmLogParser> _alarmLogParser;
     std::unique_ptr<DevInfoParser> _devInfoParser;

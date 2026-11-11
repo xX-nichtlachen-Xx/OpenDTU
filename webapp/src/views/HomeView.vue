@@ -86,6 +86,26 @@
                             <div class="p-1 flex-grow-1">
                                 <div class="d-flex flex-wrap">
                                     <div style="padding-right: 2em">
+                                        <span
+                                            class="badge"
+                                            :class="{
+                                                'text-bg-secondary': inverter.encryption_status === 0,
+                                                'text-bg-danger':
+                                                    inverter.encryption_status === 1 ||
+                                                    inverter.encryption_status === 4,
+                                                'text-bg-warning': inverter.encryption_status === 2,
+                                                'text-bg-success': inverter.encryption_status === 3,
+                                            }"
+                                            :title="$t('home.EncryptionStatus' + inverter.encryption_status)"
+                                        >
+                                            {{
+                                                inverter.encryption_status === 4
+                                                    ? $t('home.ActivateAES')
+                                                    : $t('home.Encryption')
+                                            }}
+                                        </span>
+                                    </div>
+                                    <div style="padding-right: 2em">
                                         {{ inverter.name }}
                                     </div>
                                     <div style="padding-right: 2em">

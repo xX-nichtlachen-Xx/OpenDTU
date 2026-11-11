@@ -58,6 +58,7 @@ struct INVERTER_CONFIG_T {
     bool ZeroYieldDayOnMidnight;
     bool ClearEventlogOnMidnight;
     bool YieldDayCorrection;
+    bool Encryption_Enable; // HM 1.5.x+ AES payload encryption
     CHANNEL_CONFIG_T channel[INV_MAX_CHAN_COUNT];
 };
 

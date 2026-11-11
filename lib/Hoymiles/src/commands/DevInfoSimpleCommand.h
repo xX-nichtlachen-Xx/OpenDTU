@@ -9,5 +9,7 @@ public:
 
     virtual String getCommandName() const;
 
+    bool isEncryptable() const override { return false; }
+
     virtual bool handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id);
 };

@@ -16,6 +16,8 @@ public:
 
     virtual bool handleResponse(const fragment_t fragment[], const uint8_t max_fragment_id);
 
+    bool isEncryptable() const override { return true; }
+
 protected:
     void setDataType(const uint8_t data_type);
     uint8_t getDataType() const;

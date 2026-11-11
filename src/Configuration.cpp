@@ -149,6 +149,7 @@ bool ConfigurationClass::write()
         inv["zero_day"] = config.Inverter[i].ZeroYieldDayOnMidnight;
         inv["clear_eventlog"] = config.Inverter[i].ClearEventlogOnMidnight;
         inv["yieldday_correction"] = config.Inverter[i].YieldDayCorrection;
+        inv["encryption_enable"] = config.Inverter[i].Encryption_Enable;
 
         JsonArray channel = inv["channel"].to<JsonArray>();
         for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
@@ -339,6 +340,7 @@ bool ConfigurationClass::read()
         config.Inverter[i].ZeroYieldDayOnMidnight = inv["zero_day"] | false;
         config.Inverter[i].ClearEventlogOnMidnight = inv["clear_eventlog"] | false;
         config.Inverter[i].YieldDayCorrection = inv["yieldday_correction"] | false;
+        config.Inverter[i].Encryption_Enable = inv["encryption_enable"] | false;
 
         JsonArray channel = inv["channel"];
         for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
@@ -520,6 +522,7 @@ void ConfigurationClass::deleteInverterById(const uint8_t id)
     config.Inverter[id].ZeroRuntimeDataIfUnrechable = false;
     config.Inverter[id].ZeroYieldDayOnMidnight = false;
     config.Inverter[id].YieldDayCorrection = false;
+    config.Inverter[id].Encryption_Enable = false;
 
     for (uint8_t c = 0; c < INV_MAX_CHAN_COUNT; c++) {
         config.Inverter[id].channel[c].MaxChannelPower = 0;

@@ -9,9 +9,11 @@
 #include "commands/DevInfoAllCommand.h"
 #include "commands/DevInfoSimpleCommand.h"
 #include "commands/GridOnProFilePara.h"
+#include "commands/ConfigCommand.h"
 #include "commands/PowerControlCommand.h"
 #include "commands/RealTimeRunDataCommand.h"
 #include "commands/RfInfoCommand.h"
+#include "commands/SeedCommand.h"
 #include "commands/SystemConfigParaCommand.h"
 
 HM_Abstract::HM_Abstract(HoymilesRadio* radio, const uint64_t serial)
@@ -19,11 +21,34 @@ HM_Abstract::HM_Abstract(HoymilesRadio* radio, const uint64_t serial)
 {
 }
 
+void HM_Abstract::enqueueSeedIfNeeded()
+{
+    if (getEncryptionEnabled() && !isEncryptionActive()) {
+        time_t now;
+        time(&now);
+
+        auto prime = _radio->prepareCommand<DevInfoSimpleCommand>(this);
+        prime->setTime(now);
+        _radio->enqueCommand(prime);
+
+        auto seed = _radio->prepareCommand<SeedCommand>(this);
+        _radio->enqueCommand(seed);
+
+        auto config = _radio->prepareCommand<ConfigCommand>(this);
+        config->setTime(now);
+        _radio->enqueCommand(config);
+
+        setEncryptionSessionActive(true);
+    }
+}
+
 bool HM_Abstract::sendStatsRequest()
 {
     if (!getEnablePolling()) {
         return false;
     }
+
+    enqueueSeedIfNeeded();
 
     time_t now;
     time(&now);
@@ -40,6 +65,8 @@ bool HM_Abstract::sendAlarmLogRequest(const bool force)
     if (!getEnablePolling()) {
         return false;
     }
+
+    enqueueSeedIfNeeded();
 
     if (!force) {
         if (Statistics()->hasChannelFieldValue(TYPE_INV, CH0, FLD_EVT_LOG)) {
@@ -68,6 +95,8 @@ bool HM_Abstract::sendDevInfoRequest()
         return false;
     }
 
+    enqueueSeedIfNeeded();
+
     time_t now;
     time(&now);
 
@@ -88,6 +117,8 @@ bool HM_Abstract::sendSystemConfigParaRequest()
         return false;
     }
 
+    enqueueSeedIfNeeded();
+
     time_t now;
     time(&now);
 
@@ -104,6 +135,8 @@ bool HM_Abstract::sendActivePowerControlRequest(float limit, const PowerLimitCon
     if (!getEnableCommands()) {
         return false;
     }
+
+    enqueueSeedIfNeeded();
 
     if (type == PowerLimitControlType::RelativNonPersistent || type == PowerLimitControlType::RelativPersistent) {
         limit = min<float>(100, limit);
@@ -131,6 +164,8 @@ bool HM_Abstract::sendPowerControlRequest(const bool turnOn)
         return false;
     }
 
+    enqueueSeedIfNeeded();
+
     if (turnOn) {
         _powerState = 1;
     } else {
@@ -150,6 +185,8 @@ bool HM_Abstract::sendRestartControlRequest()
     if (!getEnableCommands()) {
         return false;
     }
+
+    enqueueSeedIfNeeded();
 
     _powerState = 2;
 
@@ -185,6 +222,8 @@ bool HM_Abstract::sendGridOnProFileParaRequest()
     if (!getEnablePolling()) {
         return false;
     }
+
+    enqueueSeedIfNeeded();
 
     time_t now;
     time(&now);

@@ -20,6 +20,7 @@ public:
     void setLastUpdateSimple(const uint32_t lastUpdate);
 
     uint16_t getFwBuildVersion() const;
+    uint16_t getFwBuildVersionSimple() const;
     time_t getFwBuildDateTime() const;
     String getFwBuildDateTimeStr() const;
     uint16_t getFwBootloaderVersion() const;

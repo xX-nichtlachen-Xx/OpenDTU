@@ -22,6 +22,7 @@ ID   Target Addr   Source Addr   Cmd  Payload CRC16 CRC8
 */
 #include "DevControlCommand.h"
 #include "crc.h"
+#include <ctime>
 
 DevControlCommand::DevControlCommand(InverterAbstract* inv, const uint64_t router_address)
     : CommandAbstract(inv, router_address)
@@ -30,6 +31,11 @@ DevControlCommand::DevControlCommand(InverterAbstract* inv, const uint64_t route
     _payload[9] = 0x81;
 
     setTimeout(1000);
+}
+
+uint32_t DevControlCommand::encryptionTimestamp() const
+{
+    return static_cast<uint32_t>(time(nullptr));
 }
 
 void DevControlCommand::udpateCRC(const uint8_t len)

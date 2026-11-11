@@ -123,6 +123,7 @@ void InverterSettingsClass::settingsLoop()
 
         inv->setEnablePolling(inv_cfg.Poll_Enable && (isDayPeriod || inv_cfg.Poll_Enable_Night));
         inv->setEnableCommands(inv_cfg.Command_Enable && (isDayPeriod || inv_cfg.Command_Enable_Night));
+        inv->setEncryptionEnabled(inv_cfg.Encryption_Enable);
     }
 }
 
