@@ -153,7 +153,7 @@
                                     </button>
                                 </div>
 
-                                <div class="btn-group" role="group">
+                                <div class="btn-group me-3" role="group">
                                     <button
                                         v-if="inverter.events >= 0"
                                         type="button"
@@ -169,6 +169,18 @@
                                             {{ inverter.events }}
                                             <span class="visually-hidden">{{ $t('home.UnreadMessages') }}</span>
                                         </span>
+                                    </button>
+                                </div>
+
+                                <div class="btn-group ms-auto" role="group">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-secondary"
+                                        @click="onShowSelfCheck(inverter.serial)"
+                                        v-tooltip
+                                        :title="$t('home.ShowSelfCheck')"
+                                    >
+                                        <BIconClipboardCheck style="font-size: 24px" />
                                     </button>
                                 </div>
                             </div>
@@ -513,6 +525,23 @@
             </button>
         </div>
     </ModalDialog>
+
+    <ModalDialog
+        modalId="selfCheckView"
+        :title="$t('selfcheck.Title')"
+        :loading="selfCheckLoading"
+        @close="stopSelfCheckPolling"
+    >
+        <BootstrapAlert v-model="showAlertSelfCheck" :variant="alertTypeSelfCheck">
+            {{ alertMessageSelfCheck }}
+        </BootstrapAlert>
+        <SelfCheck :selfCheckStatus="selfCheckStatus" />
+        <template #footer>
+            <button type="button" class="btn btn-success" :disabled="!canStartSelfCheck" @click="onStartSelfCheck">
+                <BIconPlayFill class="fs-5" />&nbsp;{{ $t('selfcheck.Start') }}
+            </button>
+        </template>
+    </ModalDialog>
 </template>
 
 <script lang="ts">
@@ -527,6 +556,7 @@ import InverterChannelInfo from '@/components/InverterChannelInfo.vue';
 import InverterTotalInfo from '@/components/InverterTotalInfo.vue';
 import { LimitType } from '@/types/LimitConfig';
 import ModalDialog from '@/components/ModalDialog.vue';
+import SelfCheck from '@/components/SelfCheck.vue';
 import type { DevInfoStatus } from '@/types/DevInfoStatus';
 import type { EventlogItems } from '@/types/EventlogStatus';
 import type { GridProfileRawdata } from '@/types/GridProfileRawdata';
@@ -534,15 +564,18 @@ import type { GridProfileStatus } from '@/types/GridProfileStatus';
 import type { LimitConfig } from '@/types/LimitConfig';
 import type { LimitStatus } from '@/types/LimitStatus';
 import type { Inverter, LiveData } from '@/types/LiveDataStatus';
+import type { SelfCheckStatus } from '@/types/SelfCheckStatus';
 import { authHeader, authUrl, handleResponse, isLoggedIn } from '@/utils/authentication';
 import * as bootstrap from 'bootstrap';
 import {
     BIconArrowCounterclockwise,
     BIconBroadcast,
+    BIconClipboardCheck,
     BIconCpu,
     BIconInfoCircle,
     BIconJournalText,
     BIconOutlet,
+    BIconPlayFill,
     BIconPower,
     BIconSpeedometer,
     BIconToggleOff,
@@ -563,12 +596,15 @@ export default defineComponent({
         InverterChannelInfo,
         InverterTotalInfo,
         ModalDialog,
+        SelfCheck,
         BIconArrowCounterclockwise,
         BIconBroadcast,
+        BIconClipboardCheck,
         BIconCpu,
         BIconInfoCircle,
         BIconJournalText,
         BIconOutlet,
+        BIconPlayFill,
         BIconPower,
         BIconSpeedometer,
         BIconToggleOff,
@@ -620,6 +656,14 @@ export default defineComponent({
             alertTypePower: 'info',
             showAlertPower: false,
             successCommandPower: '',
+            selfCheckView: {} as bootstrap.Modal,
+            selfCheckSerial: '',
+            selfCheckStatus: {} as SelfCheckStatus,
+            selfCheckLoading: true,
+            selfCheckTimer: 0,
+            alertMessageSelfCheck: '',
+            alertTypeSelfCheck: 'info',
+            showAlertSelfCheck: false,
 
             isWebsocketConnected: false,
         };
@@ -640,9 +684,15 @@ export default defineComponent({
         this.gridProfileView = new bootstrap.Modal('#gridProfileView');
         this.limitSettingView = new bootstrap.Modal('#limitSettingView');
         this.powerSettingView = new bootstrap.Modal('#powerSettingView');
+        this.selfCheckView = new bootstrap.Modal('#selfCheckView');
+        document.getElementById('selfCheckView')?.addEventListener('hidden.bs.modal', () => {
+            this.stopSelfCheckPolling();
+            this.selfCheckSerial = '';
+        });
     },
     unmounted() {
         this.socket?.close();
+        this.stopSelfCheckPolling();
     },
     updated() {
         console.log('Updated');
@@ -674,6 +724,16 @@ export default defineComponent({
         },
         currentLimitRelative(): string {
             return this.$n(this.currentLimitList.limit_relative, 'decimalOneDigit');
+        },
+        canStartSelfCheck(): boolean {
+            return (
+                this.isLogged &&
+                !this.selfCheckLoading &&
+                this.selfCheckStatus.commands_enabled &&
+                this.selfCheckStatus.state != 'starting' &&
+                this.selfCheckStatus.state != 'running' &&
+                this.selfCheckStatus.state != 'collecting'
+            );
         },
         inverterData(): Inverter[] {
             return this.liveData.inverters.slice().sort((a: Inverter, b: Inverter) => {
@@ -932,6 +992,63 @@ export default defineComponent({
                         this.alertMessagePower = this.$t('apiresponse.' + response.code, response.param);
                         this.alertTypePower = response.type;
                         this.showAlertPower = true;
+                    }
+                });
+        },
+        onShowSelfCheck(serial: string) {
+            this.stopSelfCheckPolling();
+            this.showAlertSelfCheck = false;
+            this.selfCheckSerial = serial;
+            this.selfCheckLoading = true;
+            this.fetchSelfCheckStatus();
+            this.selfCheckView.show();
+        },
+        fetchSelfCheckStatus() {
+            const serial = this.selfCheckSerial;
+            fetch('/api/selfcheck/status?inv=' + serial, { headers: authHeader() })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((data) => {
+                    if (serial != this.selfCheckSerial) {
+                        return;
+                    }
+                    this.selfCheckStatus = data;
+                    this.selfCheckLoading = false;
+                    if (data.state == 'starting' || data.state == 'running' || data.state == 'collecting') {
+                        this.startSelfCheckPolling();
+                    } else {
+                        this.stopSelfCheckPolling();
+                    }
+                });
+        },
+        startSelfCheckPolling() {
+            if (this.selfCheckTimer == 0) {
+                this.selfCheckTimer = window.setInterval(() => {
+                    this.fetchSelfCheckStatus();
+                }, 2000);
+            }
+        },
+        stopSelfCheckPolling() {
+            if (this.selfCheckTimer != 0) {
+                clearInterval(this.selfCheckTimer);
+                this.selfCheckTimer = 0;
+            }
+        },
+        onStartSelfCheck() {
+            const formData = new FormData();
+            formData.append('data', JSON.stringify({ serial: this.selfCheckSerial }));
+
+            fetch('/api/selfcheck/start', {
+                method: 'POST',
+                headers: authHeader(),
+                body: formData,
+            })
+                .then((response) => handleResponse(response, this.$emitter, this.$router))
+                .then((response) => {
+                    this.alertMessageSelfCheck = this.$t('apiresponse.' + response.code, response.param);
+                    this.alertTypeSelfCheck = response.type;
+                    this.showAlertSelfCheck = true;
+                    if (response.type == 'success') {
+                        this.fetchSelfCheckStatus();
                     }
                 });
         },

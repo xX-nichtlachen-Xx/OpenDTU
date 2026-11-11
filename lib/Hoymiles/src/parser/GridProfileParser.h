@@ -39,6 +39,8 @@ public:
     String getProfileName() const;
     String getProfileVersion() const;
 
+    static String getProfileNameById(const uint8_t lIdx, const uint8_t hIdx);
+
     std::vector<uint8_t> getRawData() const;
 
     std::list<GridProfileSection_t> getProfile() const;

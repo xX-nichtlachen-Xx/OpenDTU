@@ -47,6 +47,32 @@ void HoymilesClass::loop()
     _radioNrf->loop();
     _radioCmt->loop();
 
+    for (auto& inv : _inverters) {
+        auto selfCheck = inv->SelfCheck();
+        const SelfCheckState selfCheckState = selfCheck->getState();
+        if ((selfCheckState != SelfCheckState::Running && selfCheckState != SelfCheckState::Collecting)
+            || !inv->getRadio()->isInitialized()) {
+            continue;
+        }
+
+        if (selfCheckState == SelfCheckState::Running && millis() - selfCheck->getStartTime() > HOY_SELF_CHECK_TIMEOUT) {
+            ESP_LOGW(TAG, "SelfCheck %s: timeout after %" PRIu32 " polls", inv->serialString().c_str(), selfCheck->getPollCount());
+            selfCheck->setTimeout();
+            continue;
+        }
+
+        if (selfCheckState == SelfCheckState::Collecting && selfCheck->getCollectPolls() >= HOY_SELF_CHECK_COLLECT_POLLS) {
+            ESP_LOGW(TAG, "SelfCheck %s: result still incomplete after %" PRIu32 " polls", inv->serialString().c_str(), selfCheck->getCollectPolls());
+            selfCheck->setIncomplete();
+            continue;
+        }
+
+        if (millis() - selfCheck->getLastPoll() >= HOY_SELF_CHECK_POLL_INTERVAL && inv->getRadio()->isQueueEmpty()) {
+            inv->sendSelfCheckStateRequest();
+            selfCheck->setLastPoll(millis());
+        }
+    }
+
     if (getNumInverters() == 0 || millis() - _lastPoll <= (_pollInterval * 1000)) {
         return;
     }
@@ -66,7 +92,9 @@ void HoymilesClass::loop()
             iv->Statistics()->zeroRuntimeData();
         }
 
-        if (iv->getEnablePolling() || iv->getEnableCommands()) {
+        if (iv->SelfCheck()->isActive()) {
+            _lastPoll = millis();
+        } else if (iv->getEnablePolling() || iv->getEnableCommands()) {
             ESP_LOGI(TAG, "Fetch inverter: %s", iv->serialString().c_str());
 
             if (!iv->isReachable()) {

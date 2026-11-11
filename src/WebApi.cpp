@@ -35,6 +35,7 @@ void WebApiClass::init(Scheduler& scheduler)
     _webApiPower.init(_server, scheduler);
     _webApiPrometheus.init(_server, scheduler);
     _webApiSecurity.init(_server, scheduler);
+    _webApiSelfCheck.init(_server, scheduler);
     _webApiSysstatus.init(_server, scheduler);
     _webApiWebapp.init(_server, scheduler);
     _webApiWsConsole.init(_server, scheduler);
