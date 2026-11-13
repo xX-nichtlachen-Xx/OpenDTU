@@ -355,6 +355,11 @@ bool PowerLimiterInverter::isOutputSettled(uint32_t statsMillis, uint32_t statsA
 
 uint16_t PowerLimiterInverter::getInverterMaxPowerWatts() const
 {
+    auto const* inverterConfig = Configuration.getInverterConfig(_config.Serial);
+    if (inverterConfig != nullptr && inverterConfig->MaxPower > 0) {
+        return inverterConfig->MaxPower;
+    }
+
     return _spInverter->DevInfo()->getMaxPower();
 }
 

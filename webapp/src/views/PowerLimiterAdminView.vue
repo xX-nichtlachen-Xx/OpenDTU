@@ -722,7 +722,7 @@ export default defineComponent({
                 newInv.is_governed = false;
                 newInv.is_behind_power_meter = true;
                 newInv.lower_power_limit = this.getLowerLimitMinimum(newInv);
-                newInv.upper_power_limit = Math.max(metaInv.max_power, 300);
+                newInv.upper_power_limit = Math.max(metaInv.max_power || 300, 300);
                 newInv.power_source = 0; // battery
                 newInv.use_overscaling_to_compensate_shading = false;
                 newInv.allow_standby = true;
