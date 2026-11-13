@@ -156,7 +156,17 @@
                         class="form-control"
                         maxlength="31"
                     />
-
+                    <label for="inverter-max-power" class="col-form-label">
+                        {{ $t('inverteradmin.InverterMaxPower') }}
+                        <BIconInfoCircle v-tooltip :title="$t('inverteradmin.InverterMaxPowerHint')" />
+                    </label>
+                    <input
+                        v-model.number="selectedInverterData.max_power"
+                        type="number"
+                        id="inverter-max-power"
+                        class="form-control"
+                        min="0"
+                    />
                     <CardElement :text="$t('inverteradmin.InverterStatus')" addSpace>
                         <InputElement
                             :label="$t('inverteradmin.PollEnable')"
