@@ -71,6 +71,8 @@ void HoymilesClass::loop()
 
             if (!iv->isReachable()) {
                 iv->sendChangeChannelRequest();
+            } else {
+                iv->CmtLink.acceptedNoLink = 0;
             }
 
             if (Utils::getTimeAvailable()) {
@@ -108,6 +110,12 @@ void HoymilesClass::loop()
                         || invalidDevInfo) {
                         ESP_LOGI(TAG, "Request device info");
                         iv->sendDevInfoRequest();
+                    }
+
+                    // Fetch RF module info (only required once)
+                    if (!iv->RfInfo()->containsValidData()) {
+                        ESP_LOGI(TAG, "Request RF info");
+                        iv->sendRfInfoRequest();
                     }
                 }
             }

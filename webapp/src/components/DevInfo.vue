@@ -52,6 +52,14 @@
                     <StatusBadge :status="devInfoList.pdl_supported" true_text="devinfo.Yes" false_text="devinfo.No" />
                 </td>
             </tr>
+            <tr v-if="devInfoList.rf_valid_data">
+                <td>{{ $t('devinfo.RfHardwareVersion') }}</td>
+                <td>{{ devInfoList.rf_hw_version }}</td>
+            </tr>
+            <tr v-if="devInfoList.rf_valid_data">
+                <td>{{ $t('devinfo.RfFirmwareVersion') }}</td>
+                <td>{{ devInfoList.rf_fw_version }}</td>
+            </tr>
             <tr v-if="devInfoList.firmware_update_supported">
                 <td>{{ $t('devinfo.FirmwareUpdateStatus') }}</td>
                 <td>
@@ -60,8 +68,7 @@
                     }}</span>
                     <span v-else class="badge bg-secondary">{{ $t('devinfo.Idle') }}</span>
                 </td>
-            </tr>
-        </tbody>
+            </tr>        </tbody>
     </table>
 </template>
 

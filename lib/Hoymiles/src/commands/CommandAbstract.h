@@ -44,6 +44,8 @@ public:
 
     virtual String getCommandName() const = 0;
 
+    uint8_t getMainCmd() const { return _payload[0]; }
+
     void setSendCount(const uint8_t count);
     uint8_t getSendCount() const;
     uint8_t incrementSendCount();
@@ -67,11 +69,26 @@ public:
 
     virtual bool areSameParameter(CommandAbstract* other);
 
+    // Some inverters answer certain commands with a single fragment that does
+    // not carry the "last fragment" flag (0x80) which the generic fragment
+    // reassembly otherwise requires. If set, the highest numbered fragment
+    // received so far is accepted as the complete answer.
+    bool acceptsSingleFragmentAnswer() const { return _singleFragmentAnswer; }
+
+    void setFrequency(const uint32_t frequency) { _frequency = frequency; }
+    uint32_t getFrequency() const { return _frequency; }
+
+    virtual bool usesBootFrequency() const { return false; }
+
+    InverterAbstract* getInverter() const { return _inv; }
+
 protected:
     uint8_t _payload[RF_LEN];
     uint8_t _payload_size;
+    bool _singleFragmentAnswer;
     uint32_t _timeout;
     uint8_t _sendCount;
+    uint32_t _frequency = 0;
 
     uint64_t _targetAddress;
     uint64_t _routerAddress;

@@ -13,6 +13,7 @@
 #include "commands/GridOnProFilePara.h"
 #include "commands/PowerControlCommand.h"
 #include "commands/RealTimeRunDataCommand.h"
+#include "commands/RfInfoCommand.h"
 #include "commands/SystemConfigParaCommand.h"
 #include "utils/IntelHex.h"
 #include <algorithm>
@@ -201,6 +202,17 @@ bool HM_Abstract::sendGridOnProFileParaRequest()
     return true;
 }
 
+bool HM_Abstract::sendRfInfoRequest()
+{
+    if (!getEnablePolling()) {
+        return false;
+    }
+
+    auto cmd = _radio->prepareCommand<RfInfoCommand>(this);
+    _radio->enqueCommand(cmd);
+
+    return true;
+}
 bool HM_Abstract::sendFirmwareUpdateRequest(const uint8_t* rawAscii,
                                             const size_t rawAsciiLen,
                                             const esp_partition_t* otaPartition,

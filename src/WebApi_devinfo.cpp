@@ -317,6 +317,12 @@ void WebApiDevInfoClass::onDevInfoStatus(AsyncWebServerRequest* request)
         root["max_power"] = inv->DevInfo()->getMaxPower();
         root["fw_build_datetime"] = inv->DevInfo()->getFwBuildDateTimeStr();
         root["pdl_supported"] = inv->supportsPowerDistributionLogic();
+        root["rf_valid_data"] = inv->RfInfo()->containsValidData();
+        root["rf_hw_version"] = inv->RfInfo()->getRfHardwareVersionStr();
+        root["rf_fw_version"] = inv->RfInfo()->getRfFirmwareVersionStr();
+        root["rf_module_line"] = String(inv->RfInfo()->getModuleLineChar());
+        root["rf_cmt_frequency"] = inv->CmtLink.frequency;
+
         root["firmware_update_supported"] = isFirmwareUpdateSupported(inv);
         root["firmware_update_variant"] = getFirmwareVariant(inv);
         root["firmware_update_running"] = inv->getFirmwareUpdateRunning();

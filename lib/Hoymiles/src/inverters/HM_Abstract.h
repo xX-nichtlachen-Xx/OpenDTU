@@ -22,6 +22,8 @@ public:
     bool sendRestartControlRequest();
     bool resendPowerControlRequest();
     bool sendGridOnProFileParaRequest();
+    bool sendRfInfoRequest() override;
+
     bool sendFirmwareUpdateRequest(const uint8_t* rawAscii,
                                    const size_t rawAsciiLen,
                                    const esp_partition_t* otaPartition = nullptr,

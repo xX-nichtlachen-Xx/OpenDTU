@@ -6,8 +6,10 @@
 #include "../parser/DevInfoParser.h"
 #include "../parser/GridProfileParser.h"
 #include "../parser/PowerCommandParser.h"
+#include "../parser/RfInfoParser.h"
 #include "../parser/StatisticsParser.h"
 #include "../parser/SystemConfigParaParser.h"
+#include "CmtLinkState.h"
 #include "HoymilesRadio.h"
 #include "types.h"
 #include <Arduino.h>
@@ -51,6 +53,7 @@ public:
 
     bool isProducing();
     bool isReachable();
+    bool wasHeardRecently(const uint32_t pollCycles) const;
 
     void setEnablePolling(const bool enabled);
     bool getEnablePolling() const;
@@ -72,8 +75,10 @@ public:
 
     int8_t getLastRssi() const;
 
+    CmtLinkState CmtLink;
+
     void clearRxFragmentBuffer();
-    void addRxFragment(const uint8_t fragment[], const uint8_t len, const int8_t rssi);
+    void addRxFragment(const uint8_t fragment[], const uint8_t len, const int8_t rssi, const uint8_t expectedMainCmd = 0);
     uint8_t verifyAllFragments(CommandAbstract& cmd);
 
     bool isResponseComplete() const;
@@ -114,6 +119,8 @@ public:
     virtual bool resendPowerControlRequest() = 0;
     virtual bool sendChangeChannelRequest();
     virtual bool sendGridOnProFileParaRequest() = 0;
+    virtual bool sendRfInfoRequest() = 0;
+
     virtual bool sendFirmwareUpdateRequest(const uint8_t* rawAscii,
                                            const size_t rawAsciiLen,
                                            const esp_partition_t* otaPartition = nullptr,
@@ -135,6 +142,7 @@ public:
     DevInfoParser* DevInfo();
     GridProfileParser* GridProfile();
     PowerCommandParser* PowerCommand();
+    RfInfoParser* RfInfo();
     StatisticsParser* Statistics();
     SystemConfigParaParser* SystemConfigPara();
 
@@ -165,6 +173,7 @@ private:
     std::unique_ptr<DevInfoParser> _devInfoParser;
     std::unique_ptr<GridProfileParser> _gridProfileParser;
     std::unique_ptr<PowerCommandParser> _powerCommandParser;
+    std::unique_ptr<RfInfoParser> _rfInfoParser;
     std::unique_ptr<StatisticsParser> _statisticsParser;
     std::unique_ptr<SystemConfigParaParser> _systemConfigParaParser;
 };
