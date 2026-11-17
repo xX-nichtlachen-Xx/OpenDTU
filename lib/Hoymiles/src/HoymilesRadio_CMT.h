@@ -78,6 +78,11 @@ public:
 
     uint32_t getInvBootRingFrequency(const uint8_t startChannel = 0) const;
 
+    void getModuleRing(const uint8_t centreChannel, uint8_t ring[3]) const;
+
+    uint8_t rxRingNext(const uint8_t c) const;
+    bool rxRingContains(const uint8_t c) const;
+
 private:
     void ARDUINO_ISR_ATTR handleInt1();
     void ARDUINO_ISR_ATTR handleInt2();
@@ -102,8 +107,7 @@ private:
     void startRxHopping(const uint32_t centreFrequency, const bool enabled);
     void rxHopStep();
 
-    uint8_t rxRingNext(const uint8_t c) const;
-    bool rxRingContains(const uint8_t c) const;
+    void buildRxRing(const uint8_t centreChannel);
 
     static constexpr uint32_t RX_HOP_WAIT_US = 3000;
     static constexpr uint32_t RX_HOP_HOLD_MAX_US = 100000;
@@ -112,6 +116,7 @@ private:
     bool _rxHopActive = false;
     bool _rxHopHold = false;
     uint8_t _rxHopCentreChannel = 0;
+    uint8_t _rxRing[3] = { 0, 0, 0 };
     uint8_t _rxHopChannel = 0;
     uint32_t _rxHopLastUs = 0;
     uint32_t _rxHopHoldUs = 0;

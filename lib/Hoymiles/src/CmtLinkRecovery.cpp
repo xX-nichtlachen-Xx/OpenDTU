@@ -70,8 +70,12 @@ void CmtLinkRecovery::onProbeHit(InverterAbstract* inv, const uint32_t frequency
 
     const uint8_t hitChannel = radio->getChannelFromFrequency(frequency);
     const uint8_t targetChannel = radio->getChannelFromFrequency(radio->getInverterTargetFrequency());
-    const bool onTargetRing = hitChannel != 0xFF && targetChannel != 0xFF
-        && hitChannel + 1 >= targetChannel && hitChannel <= targetChannel + 1;
+    bool onTargetRing = false;
+    if (hitChannel != 0xFF && targetChannel != 0xFF) {
+        uint8_t ring[3];
+        radio->getModuleRing(targetChannel, ring);
+        onTargetRing = hitChannel == ring[0] || hitChannel == ring[1] || hitChannel == ring[2];
+    }
 
     const uint32_t learned = onTargetRing ? 0 : frequency;
 

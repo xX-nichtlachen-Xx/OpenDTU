@@ -162,23 +162,51 @@ bool HoymilesRadio_CMT::getProbeFrequency(const uint16_t step, uint32_t& frequen
     return true;
 }
 
+void HoymilesRadio_CMT::getModuleRing(const uint8_t centreChannel, uint8_t ring[3]) const
+{
+    ring[0] = centreChannel - 1;
+    ring[1] = centreChannel;
+    ring[2] = centreChannel + 1;
+
+    const FrequencyBand_t band = countryDefinition.at(_countryMode).Band;
+    if (band == FrequencyBand_t::BAND_900 && centreChannel == 90) {
+        ring[2] = 92;
+    } else if (band == FrequencyBand_t::BAND_860 && centreChannel == 42) {
+        ring[2] = 44;
+    } else if (band == FrequencyBand_t::BAND_860 && centreChannel == 96) {
+        ring[0] = 94;
+    }
+}
+
+void HoymilesRadio_CMT::buildRxRing(const uint8_t centreChannel)
+{
+    getModuleRing(centreChannel, _rxRing);
+}
+
 bool HoymilesRadio_CMT::rxRingContains(const uint8_t c) const
 {
-    return _rxHopCentreChannel >= 1 && c >= _rxHopCentreChannel - 1 && c <= _rxHopCentreChannel + 1;
+    if (_rxHopCentreChannel < 1) {
+        return false;
+    }
+    for (const uint8_t r : _rxRing) {
+        if (r == c) {
+            return true;
+        }
+    }
+    return false;
 }
 
 uint8_t HoymilesRadio_CMT::rxRingNext(const uint8_t c) const
 {
-    if (!rxRingContains(c)) {
+    if (_rxHopCentreChannel < 1) {
         return 0;
     }
-    if (c == _rxHopCentreChannel - 1) {
-        return _rxHopCentreChannel;
+    for (uint8_t i = 0; i < 3; i++) {
+        if (_rxRing[i] == c) {
+            return _rxRing[(i + 1) % 3];
+        }
     }
-    if (c == _rxHopCentreChannel) {
-        return _rxHopCentreChannel + 1;
-    }
-    return _rxHopCentreChannel - 1;
+    return 0;
 }
 
 void HoymilesRadio_CMT::startRxHopping(const uint32_t centreFrequency, const bool enabled)
@@ -197,6 +225,7 @@ void HoymilesRadio_CMT::startRxHopping(const uint32_t centreFrequency, const boo
     }
 
     _rxHopCentreChannel = channel;
+    buildRxRing(channel);
     _rxHopChannel = channel;
     _rxHopLastUs = micros();
     _rxHopActive = true;
